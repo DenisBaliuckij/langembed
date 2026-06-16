@@ -1,4 +1,5 @@
 """Phase 5: native-speaker annotation API (queue / annotate / export)."""
+
 from __future__ import annotations
 
 import json
@@ -49,9 +50,7 @@ def get_queue(annotator_id: int, n: int = 20, db: Session = Depends(get_db)) -> 
 @app.post("/annotate")
 def annotate(payload: AnnotateIn, db: Session = Depends(get_db)) -> dict[str, bool]:
     db.add(
-        Annotation(
-            item_id=payload.item_id, annotator_id=payload.annotator_id, label=payload.label
-        )
+        Annotation(item_id=payload.item_id, annotator_id=payload.annotator_id, label=payload.label)
     )
     db.commit()
     return {"ok": True}
@@ -84,7 +83,5 @@ def _build_triplets(
     neg = [items[i] for i, s in scored.items() if s <= neg_thr and i in items]
     out: list[dict[str, str]] = []
     for p, nneg in zip(pos, neg, strict=False):
-        out.append(
-            {"anchor": p.sentence_a, "positive": p.sentence_b, "negative": nneg.sentence_b}
-        )
+        out.append({"anchor": p.sentence_a, "positive": p.sentence_b, "negative": nneg.sentence_b})
     return out
