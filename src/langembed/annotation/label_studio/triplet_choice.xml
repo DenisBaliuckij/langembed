@@ -1,0 +1,11 @@
+<View>
+  <Header value="Какое предложение ближе по смыслу к якорю?"/>
+  <Text name="anchor" value="$anchor"/>
+  <Text name="cand_a" value="$candidate_a"/>
+  <Text name="cand_b" value="$candidate_b"/>
+  <Choices name="closer" toName="anchor" choice="single">
+    <Choice value="A"/>
+    <Choice value="B"/>
+    <Choice value="оба одинаково / непонятно"/>
+  </Choices>
+</View>

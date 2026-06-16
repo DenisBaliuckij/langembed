@@ -1,0 +1,79 @@
+# Reproducible training DAG (Phases 1-6). Serving (Phase 7) is a runtime
+# service and is intentionally not part of the pipeline.
+#
+# External inputs (provide / produce before `dvc repro`):
+#   data/raw/*               raw monolingual text (Phase 1 input)
+#   data/sts_test_gu.jsonl   isolated STS test set (never in training)
+#   data/native_triplets.jsonl  produced by the annotation service (Phase 5 export)
+stages:
+  corpus:
+    cmd: python -m langembed.data.build_corpus --config configs/tokenizer.yaml
+    deps:
+      - configs/tokenizer.yaml
+      - data/raw
+      - src/langembed/preprocess.py
+      - src/langembed/data/dedup.py
+      - src/langembed/data/build_corpus.py
+    outs:
+      - data/corpus_gu.txt
+
+  tokenizer:
+    cmd: python -m langembed.tokenizer.train_tokenizer --config configs/tokenizer.yaml
+    deps:
+      - configs/tokenizer.yaml
+      - data/corpus_gu.txt
+      - src/langembed/tokenizer/train_tokenizer.py
+    outs:
+      - artifacts/tokenizer_gu
+
+  pretrain:
+    cmd: python -m langembed.pretrain.train_mlm --config configs/pretrain.yaml
+    deps:
+      - configs/pretrain.yaml
+      - data/corpus_gu.txt
+      - artifacts/tokenizer_gu
+      - src/langembed/pretrain/train_mlm.py
+    outs:
+      - artifacts/encoder_gu
+
+  simcse:
+    cmd: python -m langembed.contrastive.train_simcse --config configs/contrastive.yaml
+    deps:
+      - configs/contrastive.yaml
+      - data/corpus_gu.txt
+      - artifacts/encoder_gu
+      - src/langembed/contrastive/train_simcse.py
+    outs:
+      - artifacts/simcse_gu
+
+  supervised:
+    cmd: python -m langembed.contrastive.train_supervised --config configs/contrastive.yaml
+    deps:
+      - configs/contrastive.yaml
+      - data/native_triplets.jsonl
+      - artifacts/simcse_gu
+      - src/langembed/contrastive/train_supervised.py
+    outs:
+      - artifacts/embed_gu_v1
+
+  llm_lora:
+    cmd: python -m langembed.llm_embed.train_lora --config configs/llm_embed.yaml
+    deps:
+      - configs/llm_embed.yaml
+      - data/native_triplets.jsonl
+      - src/langembed/llm_embed/train_lora.py
+      - src/langembed/llm_embed/model.py
+    outs:
+      - artifacts/embed_gu_llm
+
+  evaluate:
+    cmd: python -m langembed.eval.evaluate --config configs/eval.yaml
+    deps:
+      - configs/eval.yaml
+      - data/sts_test_gu.jsonl
+      - artifacts/embed_gu_v1
+      - artifacts/embed_gu_llm
+      - src/langembed/eval/evaluate.py
+    metrics:
+      - metrics/eval.json:
+          cache: false

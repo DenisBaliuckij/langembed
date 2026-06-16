@@ -1,0 +1,18 @@
+seed: 42
+encoder_dir: artifacts/encoder_gu
+simcse:
+  sentences_path: data/corpus_gu.txt
+  out_dir: artifacts/simcse_gu
+  batch_size: 128
+  epochs: 1
+  warmup_steps: 1000
+  max_seq_length: 128
+supervised:
+  triplets_path: data/native_triplets.jsonl
+  in_dir: artifacts/simcse_gu
+  out_dir: artifacts/embed_gu_v1
+  batch_size: 64
+  epochs: 3
+  warmup_steps: 500
+smoke:
+  max_steps: 20

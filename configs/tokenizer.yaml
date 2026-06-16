@@ -1,0 +1,11 @@
+language: gu
+data:
+  raw_paths:
+    - data/raw/wiki_gu.txt
+  out_path: data/corpus_gu.txt
+  test_path: data/sts_test_gu.jsonl
+tokenizer:
+  vocab_size: 32000
+  min_frequency: 2
+  unk_rate_max: 0.01
+  out_dir: artifacts/tokenizer_gu

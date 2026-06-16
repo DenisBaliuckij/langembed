@@ -1,0 +1,11 @@
+test_path: data/sts_test_gu.jsonl
+score_scale: 5.0
+retrieval_k: 10
+branches:
+  A: artifacts/embed_gu_v1
+  B: artifacts/embed_gu_mling
+  C: artifacts/embed_gu_llm
+train_paths:
+  - data/corpus_gu.txt
+  - data/native_triplets.jsonl
+metrics_path: metrics/eval.json

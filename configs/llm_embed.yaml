@@ -1,0 +1,37 @@
+seed: 42
+
+# --- Branch C: LLM as the embedder ---------------------------------------
+# Two modes:
+#   ready_embedder : base_model is already an instruction embedding LLM
+#                    (e.g. Qwen/Qwen3-Embedding-0.6B). LoRA-finetune on triplets.
+#   llm2vec        : base_model is a plain decoder LLM; run MNTP first
+#                    (mntp.py via the `llm2vec` library), then LoRA contrastive.
+#                    Indic-strong bases for Gujarati: sarvamai/sarvam-1 (2B),
+#                    krutrim-ai/Krutrim-2 (12B), Qwen/Qwen2.5-1.5B.
+mode: ready_embedder
+base_model: Qwen/Qwen3-Embedding-0.6B
+pooling: last_token            # last_token | mean  (decoder LLMs -> last_token)
+instruction: "Represent this Gujarati sentence for semantic similarity"
+max_seq_length: 256
+
+quantization:
+  load_in_4bit: true           # bitsandbytes; set false if no GPU/bnb
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+mntp:                          # LLM2Vec stage 1 (only for mode: llm2vec)
+  enable: false
+  corpus_path: data/corpus_gu.txt
+  out_dir: artifacts/llm_mntp_gu
+
+train:
+  triplets_path: data/native_triplets.jsonl
+  out_dir: artifacts/embed_gu_llm
+  batch_size: 16
+  epochs: 3
+  learning_rate: 0.0002
+  warmup_ratio: 0.05

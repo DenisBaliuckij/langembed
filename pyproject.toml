@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langembed"
+version = "0.1.0"
+description = "From-scratch sentence-embedding pipeline for low-resource languages with native-speaker active learning."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pyyaml>=6",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "scikit-learn>=1.4",
+  "datasketch>=1.6",
+]
+
+[project.optional-dependencies]
+ml = [
+  "torch>=2.2",
+  "transformers>=4.40",
+  "sentence-transformers>=3.0",
+  "tokenizers>=0.19",
+  "datasets>=2.19",
+  "indic-nlp-library>=0.92",
+  "mlflow>=2.12",
+  "peft>=0.11",
+  "accelerate>=0.30",
+  "bitsandbytes>=0.43",
+  "sentencepiece>=0.2",
+  "scipy>=1.11",
+]
+serve = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.1",
+  "celery>=5.3",
+  "redis>=5.0",
+]
+dev = [
+  "ruff>=0.4",
+  "mypy>=1.10",
+  "pytest>=8.2",
+  "dvc>=3.50",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

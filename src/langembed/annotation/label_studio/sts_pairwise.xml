@@ -1,0 +1,13 @@
+<View>
+  <Header value="Оцените смысловую близость двух предложений"/>
+  <Text name="a" value="$sentence_a"/>
+  <Text name="b" value="$sentence_b"/>
+  <Choices name="sim" toName="a" choice="single" showInLine="true">
+    <Choice value="0 — не связаны"/>
+    <Choice value="1"/>
+    <Choice value="2"/>
+    <Choice value="3"/>
+    <Choice value="4"/>
+    <Choice value="5 — эквивалентны"/>
+  </Choices>
+</View>
