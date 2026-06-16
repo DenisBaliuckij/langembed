@@ -1,0 +1,20 @@
+{"sentence_a": "The dog barked loudly at the passing cars.", "sentence_b": "The dog made loud noises at vehicles going by.", "score": 5}
+{"sentence_a": "She baked a moist chocolate cake for the birthday party.", "sentence_b": "She made a delicious chocolate dessert for the celebration.", "score": 5}
+{"sentence_a": "The computer processed thousands of calculations in one second.", "sentence_b": "The machine performed many computations very quickly.", "score": 5}
+{"sentence_a": "The team played well and won the championship after a tough season.", "sentence_b": "The team won the title after a difficult season.", "score": 5}
+{"sentence_a": "Heavy rain fell throughout the night flooding several low streets.", "sentence_b": "It rained heavily all night causing floods in some streets.", "score": 5}
+{"sentence_a": "The cat curled up on the warm windowsill.", "sentence_b": "The software engineers optimized the database query performance.", "score": 0}
+{"sentence_a": "She grilled vegetables and chicken for the summer barbecue.", "sentence_b": "The soccer ball curved sharply and landed in the corner of the net.", "score": 0}
+{"sentence_a": "Artificial intelligence is transforming many industries worldwide rapidly.", "sentence_b": "The horse galloped across the open meadow.", "score": 0}
+{"sentence_a": "The marathon runner crossed the finish line with great effort.", "sentence_b": "A gentle breeze rustled the leaves of the tall oak tree.", "score": 0}
+{"sentence_a": "The sun shone brightly and warmed the cold winter morning air.", "sentence_b": "He debugged the program until all the test cases passed.", "score": 0}
+{"sentence_a": "The horse galloped across the open meadow.", "sentence_b": "The cheetah ran fast across the open plain.", "score": 4}
+{"sentence_a": "The chef prepared pasta with a rich tomato sauce.", "sentence_b": "She cooked noodles with a flavorful red sauce.", "score": 4}
+{"sentence_a": "Machine learning models improve their accuracy with more training data.", "sentence_b": "Neural networks learn better when given more labeled examples.", "score": 4}
+{"sentence_a": "She swam fifty laps in the pool before her morning workout ended.", "sentence_b": "He ran thirty kilometers as part of his daily training regimen.", "score": 2}
+{"sentence_a": "A snowstorm buried the entire town under half a meter of snow.", "sentence_b": "The heatwave lasted for two weeks breaking temperature records daily.", "score": 1}
+{"sentence_a": "The snake slithered silently through the dry grass.", "sentence_b": "The temperature dropped sharply after sunset bringing unexpected frost.", "score": 1}
+{"sentence_a": "He seasoned the steak with salt pepper and garlic.", "sentence_b": "She marinated the tofu overnight in soy sauce and ginger.", "score": 3}
+{"sentence_a": "The basketball team practiced shooting free throws for two hours.", "sentence_b": "The volleyball team celebrated after winning the national tournament.", "score": 3}
+{"sentence_a": "The cloud computing platform scaled infrastructure automatically during peak load.", "sentence_b": "The API server handled requests efficiently using horizontal scaling.", "score": 3}
+{"sentence_a": "Butterflies collect nectar from colorful garden flowers.", "sentence_b": "Bees collect pollen from flowers to make honey.", "score": 2}
