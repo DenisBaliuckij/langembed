@@ -1,4 +1,5 @@
 """Phase 3: from-scratch MLM pre-training of the encoder (random init)."""
+
 from __future__ import annotations
 
 import argparse
@@ -58,7 +59,7 @@ def train_mlm(cfg: dict[str, Any], smoke: bool = False) -> None:
         fp16=t["fp16"],
         save_steps=t["save_steps"],
         logging_steps=t["logging_steps"],
-        report_to=["mlflow"],
+        report_to=cfg.get("report_to", ["mlflow"]),
     )
     Trainer(model=model, args=args, train_dataset=ds, data_collator=collator).train()
     model.save_pretrained(cfg["out_dir"])
