@@ -14,6 +14,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
   redis:
     image: redis:7-alpine
     ports:
@@ -23,5 +24,60 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  annotation:
+    build:
+      context: .
+      target: base
+    command: uvicorn langembed.annotation.api:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-langembed}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-langembed}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-langembed}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  serve:
+    build:
+      context: .
+      target: ml
+    command: uvicorn langembed.serving.serve:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      LANGEMBED_MODEL_DIR: ${LANGEMBED_MODEL_DIR:-artifacts/embed_gu_v1}
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  train:
+    build:
+      context: .
+      target: ml
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
