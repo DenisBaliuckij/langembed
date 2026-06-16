@@ -1,6 +1,8 @@
 """Phase 7: embedding inference service (shares preprocess.normalize with training)."""
+
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import FastAPI
@@ -17,7 +19,8 @@ def _get_model() -> Any:
     if _model is None:
         from sentence_transformers import SentenceTransformer
 
-        _model = SentenceTransformer("artifacts/embed_gu_v1")
+        model_dir = os.environ.get("LANGEMBED_MODEL_DIR", "artifacts/embed_gu_v1")
+        _model = SentenceTransformer(model_dir)
     return _model
 
 
