@@ -1,4 +1,5 @@
 """Phase 6: evaluate branches A/B/C on the isolated STS test, with leakage guard."""
+
 from __future__ import annotations
 
 import argparse
@@ -34,9 +35,7 @@ def assert_no_leakage(test_path: str, train_paths: Sequence[str]) -> None:
                 raise RuntimeError(f"Test leakage detected via {tp}")
 
 
-def _retrieval_at_k(
-    model: Any, sa: list[str], sb: list[str], k: int
-) -> dict[str, float]:
+def _retrieval_at_k(model: Any, sa: list[str], sb: list[str], k: int) -> dict[str, float]:
     """Recall@k and MRR@k: each sa[i] is a query, sb[i] is its single positive."""
     q_embs = model.encode(sa, normalize_embeddings=True, show_progress_bar=False)
     c_embs = model.encode(sb, normalize_embeddings=True, show_progress_bar=False)
@@ -86,8 +85,7 @@ def evaluate(cfg: dict[str, Any]) -> dict[str, float]:
         results[f"retrieval_recall@{k}_{branch}"] = ret[f"recall@{k}"]
         results[f"retrieval_mrr@{k}_{branch}"] = ret[f"mrr@{k}"]
         print(
-            f"branch {branch}: Recall@{k}={ret[f'recall@{k}']:.4f},"
-            f" MRR@{k}={ret[f'mrr@{k}']:.4f}"
+            f"branch {branch}: Recall@{k}={ret[f'recall@{k}']:.4f}, MRR@{k}={ret[f'mrr@{k}']:.4f}"
         )
     return results
 

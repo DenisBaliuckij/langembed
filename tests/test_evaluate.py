@@ -1,8 +1,8 @@
 """Unit tests for evaluate helpers."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 
 def test_retrieval_at_k_perfect() -> None:
@@ -23,7 +23,10 @@ def test_retrieval_at_k_worst() -> None:
     from langembed.eval.evaluate import _retrieval_at_k
 
     class FakeModel:
-        """Query[i] maps to e_i; Doc[j] maps to e_{n-1-j}. With n=4, no query matches its doc at rank 1."""
+        """Query[i] maps to e_i; Doc[j] maps to e_{n-1-j}.
+
+        With n=4, no query matches its doc at rank 1.
+        """
 
         def __init__(self) -> None:
             self._call = 0
