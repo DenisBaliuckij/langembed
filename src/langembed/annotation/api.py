@@ -25,7 +25,13 @@ class AnnotateIn(BaseModel):
 
 
 def _item(i: Item) -> dict[str, Any]:
-    return {"id": i.id, "sentence_a": i.sentence_a, "sentence_b": i.sentence_b, "status": i.status}
+    return {
+        "id": i.id,
+        "sentence_a": i.sentence_a,
+        "sentence_b": i.sentence_b,
+        "uncertainty": i.uncertainty,
+        "status": i.status,
+    }
 
 
 @app.get("/queue")
