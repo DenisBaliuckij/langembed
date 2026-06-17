@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import warnings
 from typing import Any
 
 from langembed.config import load_config
@@ -27,12 +28,15 @@ def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
     examples = [InputExample(texts=[x, x]) for x in sents]  # dropout gives the positive
     loader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
     loss = MultipleNegativesRankingLoss(model)
-    model.fit(
-        train_objectives=[(loader, loss)],
-        epochs=s["epochs"],
-        warmup_steps=s["warmup_steps"],
-        output_path=s["out_dir"],
-    )
+    # fit() uses deprecated ST 5.x internals that hard-code dataloader_pin_memory=True
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="'pin_memory'", category=UserWarning)
+        model.fit(
+            train_objectives=[(loader, loss)],
+            epochs=s["epochs"],
+            warmup_steps=s["warmup_steps"],
+            output_path=s["out_dir"],
+        )
 
 
 def main() -> None:
