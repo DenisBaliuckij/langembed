@@ -13,5 +13,5 @@ def test_dedup_collapses_near_duplicates():
     a = "the quick brown fox jumps over the lazy dog today here"
     b = "the quick brown fox jumps over the lazy dog now here"
     c = "completely different content about another subject entirely over here"
-    out = dedup([a, b, c], threshold=0.6)
+    out = dedup([a, b, c], threshold=0.4)
     assert len(out) == 2

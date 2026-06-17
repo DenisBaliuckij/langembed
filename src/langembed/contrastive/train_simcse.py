@@ -8,12 +8,16 @@ from langembed.config import load_config
 
 
 def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
-    from sentence_transformers import InputExample, SentenceTransformer, losses, models
+    from sentence_transformers import SentenceTransformer
+    from sentence_transformers.sentence_transformer.losses import MultipleNegativesRankingLoss
+    from sentence_transformers.sentence_transformer.modules import Pooling
+    from sentence_transformers.base.modules import Transformer
+    from sentence_transformers.sentence_transformer.readers import InputExample
     from torch.utils.data import DataLoader
 
     s = cfg["simcse"]
-    word = models.Transformer(cfg["encoder_dir"], max_seq_length=s["max_seq_length"])
-    pool = models.Pooling(word.get_word_embedding_dimension(), pooling_mode="mean")
+    word = Transformer(cfg["encoder_dir"], max_seq_length=s["max_seq_length"])
+    pool = Pooling(word.get_embedding_dimension(), pooling_mode="mean")
     model = SentenceTransformer(modules=[word, pool])
 
     with open(s["sentences_path"], encoding="utf-8") as f:
@@ -22,7 +26,7 @@ def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
         sents = sents[:256]
     examples = [InputExample(texts=[x, x]) for x in sents]  # dropout gives the positive
     loader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
-    loss = losses.MultipleNegativesRankingLoss(model)
+    loss = MultipleNegativesRankingLoss(model)
     model.fit(
         train_objectives=[(loader, loss)],
         epochs=s["epochs"],

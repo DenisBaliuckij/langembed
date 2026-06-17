@@ -56,7 +56,7 @@ def _retrieval_at_k(model: Any, sa: list[str], sb: list[str], k: int) -> dict[st
 
 def evaluate(cfg: dict[str, Any]) -> dict[str, float]:
     from sentence_transformers import SentenceTransformer
-    from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
+    from sentence_transformers.sentence_transformer.evaluation import EmbeddingSimilarityEvaluator
 
     assert_no_leakage(cfg["test_path"], cfg.get("train_paths", []))
     sa: list[str] = []
@@ -78,7 +78,8 @@ def evaluate(cfg: dict[str, Any]) -> dict[str, float]:
             print(f"skip branch {branch}: {path} missing")
             continue
         model = SentenceTransformer(path)
-        spearman = float(spearman_evaluator(model))
+        raw = spearman_evaluator(model)
+        spearman = raw[spearman_evaluator.primary_metric] if isinstance(raw, dict) else float(raw)
         results[f"spearman_{branch}"] = spearman
         print(f"branch {branch}: Spearman = {spearman:.4f}")
         ret = _retrieval_at_k(model, sa, sb, k)
