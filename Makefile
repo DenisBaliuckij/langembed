@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora
+.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc
 
 PY ?= python
 
@@ -51,6 +51,9 @@ eval:
 
 serve:
 	uvicorn langembed.serving.serve:app --port 8000 --reload
+
+smoke-dvc:
+	python -m dvc repro --file dvc-smoke.yaml
 
 %:
 	@:

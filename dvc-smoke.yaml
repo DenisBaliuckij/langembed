@@ -1,0 +1,54 @@
+# Smoke pipeline: English fixture data, CPU-only, full DAG in ~30 s.
+# Run:  dvc repro --file dvc-smoke.yaml
+# Or:   make smoke-dvc
+stages:
+  corpus:
+    cmd: python -m langembed.data.build_corpus --config configs/smoke/tokenizer.yaml
+    deps:
+      - configs/smoke/tokenizer.yaml
+      - tests/fixtures/en_corpus.txt
+      - src/langembed/preprocess.py
+      - src/langembed/data/dedup.py
+      - src/langembed/data/build_corpus.py
+    outs:
+      - data/smoke/corpus_en.txt
+
+  tokenizer:
+    cmd: python -m langembed.tokenizer.train_tokenizer --config configs/smoke/tokenizer.yaml
+    deps:
+      - configs/smoke/tokenizer.yaml
+      - data/smoke/corpus_en.txt
+      - src/langembed/tokenizer/train_tokenizer.py
+    outs:
+      - artifacts/smoke/tokenizer_en
+
+  pretrain:
+    cmd: python -m langembed.pretrain.train_mlm --config configs/smoke/pretrain.yaml --smoke
+    deps:
+      - configs/smoke/pretrain.yaml
+      - data/smoke/corpus_en.txt
+      - artifacts/smoke/tokenizer_en
+      - src/langembed/pretrain/train_mlm.py
+    outs:
+      - artifacts/smoke/encoder_en
+
+  simcse:
+    cmd: python -m langembed.contrastive.train_simcse --config configs/smoke/contrastive.yaml --smoke
+    deps:
+      - configs/smoke/contrastive.yaml
+      - data/smoke/corpus_en.txt
+      - artifacts/smoke/encoder_en
+      - src/langembed/contrastive/train_simcse.py
+    outs:
+      - artifacts/smoke/simcse_en
+
+  evaluate:
+    cmd: python -m langembed.eval.evaluate --config configs/smoke/eval.yaml
+    deps:
+      - configs/smoke/eval.yaml
+      - tests/fixtures/en_sts_test.jsonl
+      - artifacts/smoke/simcse_en
+      - src/langembed/eval/evaluate.py
+    metrics:
+      - metrics/smoke_eval.json:
+          cache: false
