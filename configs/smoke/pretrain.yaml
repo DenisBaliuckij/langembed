@@ -1,0 +1,25 @@
+seed: 42
+tokenizer_dir: artifacts/smoke/tokenizer_en
+corpus_path: data/smoke/corpus_en.txt
+report_to: []
+out_dir: artifacts/smoke/encoder_en
+model:
+  hidden_size: 128
+  num_hidden_layers: 2
+  num_attention_heads: 4
+  intermediate_size: 256
+  max_position_embeddings: 514
+  max_seq_length: 64
+training:
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 1
+  learning_rate: 5.0e-4
+  weight_decay: 0.01
+  warmup_steps: 5
+  max_steps: 200
+  fp16: false
+  save_steps: 100
+  logging_steps: 10
+  mlm_probability: 0.15
+smoke:
+  max_steps: 50

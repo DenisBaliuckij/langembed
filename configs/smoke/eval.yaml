@@ -1,0 +1,8 @@
+test_path: tests/fixtures/en_sts_test.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  en_smoke: artifacts/smoke/simcse_en
+train_paths:
+  - data/smoke/corpus_en.txt
+metrics_path: metrics/smoke_eval.json

@@ -1,0 +1,11 @@
+language: en
+data:
+  raw_paths:
+    - tests/fixtures/en_corpus.txt
+  out_path: data/smoke/corpus_en.txt
+  test_path: tests/fixtures/en_sts_test.jsonl
+tokenizer:
+  vocab_size: 500
+  min_frequency: 1
+  unk_rate_max: 0.05
+  out_dir: artifacts/smoke/tokenizer_en
