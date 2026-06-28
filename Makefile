@@ -53,7 +53,7 @@ serve:
 	uvicorn langembed.serving.serve:app --port 8000 --reload
 
 smoke-dvc:
-	python -m dvc repro --file dvc-smoke.yaml
+	python -m dvc repro smoke/dvc.yaml
 
 %:
 	@:
