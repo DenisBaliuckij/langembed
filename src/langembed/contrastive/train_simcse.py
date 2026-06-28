@@ -34,7 +34,7 @@ def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
     if smoke:
         sents = sents[:256]
     examples = [InputExample(texts=[x, x]) for x in sents]  # dropout gives the positive
-    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)  # type: ignore[arg-type]
+    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
     loss = MultipleNegativesRankingLoss(model)
     # fit() uses deprecated ST 5.x internals that hard-code dataloader_pin_memory=True
     with warnings.catch_warnings():

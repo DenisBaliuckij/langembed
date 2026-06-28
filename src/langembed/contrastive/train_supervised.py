@@ -11,7 +11,7 @@ from langembed.config import load_config
 
 
 def train_supervised(cfg: dict[str, Any]) -> None:
-    from sentence_transformers import (  # type: ignore[attr-defined]
+    from sentence_transformers import (
         InputExample,
         SentenceTransformer,
         losses,
@@ -29,7 +29,7 @@ def train_supervised(cfg: dict[str, Any]) -> None:
     for line in path.open(encoding="utf-8"):
         r = json.loads(line)
         examples.append(InputExample(texts=[r["anchor"], r["positive"], r["negative"]]))
-    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)  # type: ignore[arg-type]
+    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
     loss = losses.MultipleNegativesRankingLoss(model)
     model.fit(
         train_objectives=[(loader, loss)],
