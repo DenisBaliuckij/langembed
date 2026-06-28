@@ -55,6 +55,13 @@ def _retrieval_at_k(model: Any, sa: list[str], sb: list[str], k: int) -> dict[st
 
 
 def evaluate(cfg: dict[str, Any]) -> dict[str, float]:
+    # Pre-load transitive deps in correct order to avoid DLL-init crash
+    # (sentence_transformers → pandas → pyarrow segfaults on Windows + Python 3.14
+    # unless torch/datasets/pyarrow are imported first in the same process).
+    import datasets  # noqa: F401
+    import pandas  # noqa: F401
+    import pyarrow  # noqa: F401
+    import torch  # noqa: F401
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.sentence_transformer.evaluation import EmbeddingSimilarityEvaluator
 

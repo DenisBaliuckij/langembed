@@ -10,6 +10,13 @@ from langembed.config import load_config
 
 
 def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
+    # Pre-load transitive deps in correct order to avoid DLL-init crash
+    # (sentence_transformers → pandas → pyarrow segfaults on Windows + Python 3.14
+    # unless torch/datasets/pyarrow are imported first in the same process).
+    import datasets  # noqa: F401
+    import pandas  # noqa: F401
+    import pyarrow  # noqa: F401
+    import torch  # noqa: F401
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.base.modules import Transformer
     from sentence_transformers.sentence_transformer.losses import MultipleNegativesRankingLoss

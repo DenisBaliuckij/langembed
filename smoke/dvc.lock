@@ -1,0 +1,132 @@
+schema: '2.0'
+stages:
+  corpus:
+    cmd: python -m langembed.data.build_corpus --config 
+      configs/smoke/tokenizer.yaml
+    deps:
+    - path: configs/smoke/tokenizer.yaml
+      hash: md5
+      md5: 1bb3ccf0477d2c0f872af2f71f9eee1d
+      size: 324
+    - path: src/langembed/data/build_corpus.py
+      hash: md5
+      md5: 85f33abbcaa921a130febbecaf5af3df
+      size: 2161
+    - path: src/langembed/data/dedup.py
+      hash: md5
+      md5: 96b337948808997cd796710ee3bd9ac1
+      size: 957
+    - path: src/langembed/preprocess.py
+      hash: md5
+      md5: a0ee8754418bca79baebc33b53a339fc
+      size: 1023
+    - path: tests/fixtures/en_corpus.txt
+      hash: md5
+      md5: 1a439d590609c5372a68f745de532a4d
+      size: 9722
+    outs:
+    - path: data/smoke/corpus_en.txt
+      hash: md5
+      md5: a60daf92675ff540756b42c5f6fe47d8
+      size: 9882
+  tokenizer:
+    cmd: python -m langembed.tokenizer.train_tokenizer --config 
+      configs/smoke/tokenizer.yaml
+    deps:
+    - path: configs/smoke/tokenizer.yaml
+      hash: md5
+      md5: 1bb3ccf0477d2c0f872af2f71f9eee1d
+      size: 324
+    - path: data/smoke/corpus_en.txt
+      hash: md5
+      md5: a60daf92675ff540756b42c5f6fe47d8
+      size: 9882
+    - path: src/langembed/tokenizer/train_tokenizer.py
+      hash: md5
+      md5: a6acd71df72a87c34e3e9c57cb166d12
+      size: 2489
+    outs:
+    - path: artifacts/smoke/tokenizer_en
+      hash: md5
+      md5: 40cf648f17fb732508948f9f67745343.dir
+      size: 30307
+      nfiles: 2
+  pretrain:
+    cmd: python -m langembed.pretrain.train_mlm --config 
+      configs/smoke/pretrain.yaml --smoke
+    deps:
+    - path: artifacts/smoke/tokenizer_en
+      hash: md5
+      md5: 40cf648f17fb732508948f9f67745343.dir
+      size: 30307
+      nfiles: 2
+    - path: configs/smoke/pretrain.yaml
+      hash: md5
+      md5: c85bcc2b45392d9b7d43c1e3ae0e2bf3
+      size: 547
+    - path: data/smoke/corpus_en.txt
+      hash: md5
+      md5: a60daf92675ff540756b42c5f6fe47d8
+      size: 9882
+    - path: src/langembed/pretrain/train_mlm.py
+      hash: md5
+      md5: 0cd161d576f8b8584d0ac62be80f045b
+      size: 2701
+    outs:
+    - path: artifacts/smoke/encoder_en
+      hash: md5
+      md5: 5d5bb27707322a849b2a0c4c38995cd6.dir
+      size: 6727452
+      nfiles: 13
+  simcse:
+    cmd: python -m langembed.contrastive.train_simcse --config 
+      configs/smoke/contrastive.yaml --smoke
+    deps:
+    - path: artifacts/smoke/encoder_en
+      hash: md5
+      md5: 5d5bb27707322a849b2a0c4c38995cd6.dir
+      size: 6727452
+      nfiles: 13
+    - path: configs/smoke/contrastive.yaml
+      hash: md5
+      md5: 758b2766d94f43a541dd288b4ba208ca
+      size: 204
+    - path: data/smoke/corpus_en.txt
+      hash: md5
+      md5: a60daf92675ff540756b42c5f6fe47d8
+      size: 9882
+    - path: src/langembed/contrastive/train_simcse.py
+      hash: md5
+      md5: eedd1d9c1b9c3ebfb667549d47b11a94
+      size: 2376
+    outs:
+    - path: artifacts/smoke/simcse_en
+      hash: md5
+      md5: 710a6cfe3c59c9a878c23b7a0b945431.dir
+      size: 1695133
+      nfiles: 9
+  evaluate:
+    cmd: python -m langembed.eval.evaluate --config configs/smoke/eval.yaml
+    deps:
+    - path: artifacts/smoke/simcse_en
+      hash: md5
+      md5: 710a6cfe3c59c9a878c23b7a0b945431.dir
+      size: 1695133
+      nfiles: 9
+    - path: configs/smoke/eval.yaml
+      hash: md5
+      md5: e56a1aa3f551cc0a7df555573bc87ac4
+      size: 259
+    - path: src/langembed/eval/evaluate.py
+      hash: md5
+      md5: ec52d34ec1f0424fcf51b12cd00e7dc9
+      size: 4198
+    - path: tests/fixtures/en_sts_test.jsonl
+      hash: md5
+      md5: c1b8b430a63c55bbbc5abb7da2e50307
+      size: 3311
+    outs:
+    - path: metrics/smoke_eval.json
+      hash: md5
+      md5: 491d1ae451b5a66b6cbca0753a721467
+      size: 138

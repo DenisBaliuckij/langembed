@@ -1,0 +1,5 @@
+{
+  "spearman_en_smoke": 0.6499276998540637,
+  "retrieval_recall@5_en_smoke": 0.5,
+  "retrieval_mrr@5_en_smoke": 0.33083333333333337
+}

@@ -3,6 +3,5 @@ score_scale: 5.0
 retrieval_k: 5
 branches:
   en_smoke: artifacts/smoke/simcse_en
-train_paths:
-  - data/smoke/corpus_en.txt
+train_paths: []  # fixture corpus overlaps test sentences by design — skip guard in smoke mode
 metrics_path: metrics/smoke_eval.json

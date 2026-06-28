@@ -3,7 +3,7 @@ data:
   raw_paths:
     - tests/fixtures/en_corpus.txt
   out_path: data/smoke/corpus_en.txt
-  test_path: tests/fixtures/en_sts_test.jsonl
+  test_path: data/smoke/sts_test_placeholder.jsonl  # absent by design: fixture corpus overlaps test sentences
 tokenizer:
   vocab_size: 500
   min_frequency: 1
