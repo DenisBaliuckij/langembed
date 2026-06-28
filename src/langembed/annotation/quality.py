@@ -1,4 +1,5 @@
 """Annotation quality control: inter-annotator agreement, aggregation, reliability (Phase 5)."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

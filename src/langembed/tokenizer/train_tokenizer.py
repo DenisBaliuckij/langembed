@@ -1,4 +1,5 @@
 """Phase 2: train a from-scratch sub-word tokenizer on the target corpus."""
+
 from __future__ import annotations
 
 import argparse

@@ -1,4 +1,5 @@
 """Phase 4: unsupervised SimCSE on top of the from-scratch encoder."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,9 +11,9 @@ from langembed.config import load_config
 
 def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
     from sentence_transformers import SentenceTransformer
+    from sentence_transformers.base.modules import Transformer
     from sentence_transformers.sentence_transformer.losses import MultipleNegativesRankingLoss
     from sentence_transformers.sentence_transformer.modules import Pooling
-    from sentence_transformers.base.modules import Transformer
     from sentence_transformers.sentence_transformer.readers import InputExample
     from torch.utils.data import DataLoader
 
@@ -26,7 +27,7 @@ def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
     if smoke:
         sents = sents[:256]
     examples = [InputExample(texts=[x, x]) for x in sents]  # dropout gives the positive
-    loader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
+    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)  # type: ignore[arg-type]
     loss = MultipleNegativesRankingLoss(model)
     # fit() uses deprecated ST 5.x internals that hard-code dataloader_pin_memory=True
     with warnings.catch_warnings():

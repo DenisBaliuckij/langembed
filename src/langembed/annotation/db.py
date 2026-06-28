@@ -1,4 +1,5 @@
 """Database engine/session factory for the annotation service (Phase 5)."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

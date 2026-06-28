@@ -1,4 +1,5 @@
 """Active-learning sampler: prioritize the most informative pairs (Phase 5)."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

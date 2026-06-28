@@ -4,6 +4,7 @@ Indic-specific normalization is applied when indic-nlp-library is installed; if
 it is missing the function falls back to NFC + whitespace collapse so the module
 stays importable and testable.
 """
+
 from __future__ import annotations
 
 import functools

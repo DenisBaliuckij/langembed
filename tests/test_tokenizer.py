@@ -1,5 +1,6 @@
 # tests/test_tokenizer.py
 """Phase 2 tokenizer tests: round-trip and unk_rate."""
+
 from __future__ import annotations
 
 import pathlib
@@ -51,8 +52,9 @@ def test_round_trip(tmp_path: pathlib.Path) -> None:
         assert len(decoded) > 0, f"empty decode for: {normed!r} -> ids {ids}"
         # BPE with Whitespace() pre-tokenizer may insert spaces between subword tokens;
         # verify all characters are preserved in order, whitespace-only differences accepted.
-        assert decoded.replace(" ", "") == normed.replace(" ", ""), \
+        assert decoded.replace(" ", "") == normed.replace(" ", ""), (
             f"round-trip character loss: {normed!r} -> {decoded!r}"
+        )
 
 
 def test_unk_rate_below_threshold(tmp_path: pathlib.Path) -> None:

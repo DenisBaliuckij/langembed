@@ -1,4 +1,5 @@
 """Seed the gold-question set used for annotator-reliability control (Phase 5)."""
+
 from __future__ import annotations
 
 import argparse

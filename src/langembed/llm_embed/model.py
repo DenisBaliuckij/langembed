@@ -5,6 +5,7 @@ that the resulting artifact is a drop-in SentenceTransformer (and the existing
 eval harness can score branch C alongside A and B). These helpers are framework
 free and unit-tested.
 """
+
 from __future__ import annotations
 
 import numpy as np

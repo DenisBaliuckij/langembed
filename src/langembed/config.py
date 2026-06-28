@@ -3,6 +3,7 @@
 `load_config` depends only on stdlib + PyYAML so it is importable without the
 serve extras. `get_settings` lazily imports pydantic-settings.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +33,7 @@ def get_settings() -> Any:
         postgres_db: str = "langembed"
         redis_url: str = "redis://localhost:6379/0"
 
-        @computed_field  # type: ignore[misc]
+        @computed_field  # type: ignore[prop-decorator]
         @property
         def database_url(self) -> str:
             return (

@@ -28,4 +28,4 @@ RUN pip install --no-cache-dir -e ".[serve]"
 
 FROM base AS ml
 
-RUN pip install --no-cache-dir -e ".[ml]"
+RUN pip install --no-cache-dir --timeout 300 -e ".[ml]"

@@ -5,6 +5,7 @@ Full MNTP + bidirectional conversion is non-trivial; the maintained reference
 implementation is the `llm2vec` library. This wrapper delegates to it when
 available and gives clear guidance otherwise.
 """
+
 from __future__ import annotations
 
 import argparse

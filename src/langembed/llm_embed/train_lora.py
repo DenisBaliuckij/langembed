@@ -3,6 +3,7 @@
 Produces a SentenceTransformer-compatible model at train.out_dir, so the
 existing eval harness scores branch C next to A (from scratch) and B (multilingual).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,7 +17,7 @@ from langembed.llm_embed.model import ST_POOLING
 
 def build_model(cfg: dict[str, Any]) -> Any:
     from peft import LoraConfig
-    from sentence_transformers import SentenceTransformer, models
+    from sentence_transformers import SentenceTransformer, models  # type: ignore[attr-defined]
 
     model_args: dict[str, Any] = {"torch_dtype": "float16"}
     if cfg.get("quantization", {}).get("load_in_4bit"):
@@ -54,7 +55,7 @@ def build_model(cfg: dict[str, Any]) -> Any:
 
 
 def train_lora(cfg: dict[str, Any]) -> None:
-    from sentence_transformers import InputExample, losses
+    from sentence_transformers import InputExample, losses  # type: ignore[attr-defined]
     from torch.utils.data import DataLoader
 
     t = cfg["train"]
@@ -68,7 +69,7 @@ def train_lora(cfg: dict[str, Any]) -> None:
         r = json.loads(line)
         examples.append(InputExample(texts=[r["anchor"], r["positive"], r["negative"]]))
 
-    loader = DataLoader(examples, batch_size=t["batch_size"], shuffle=True)
+    loader: DataLoader = DataLoader(examples, batch_size=t["batch_size"], shuffle=True)  # type: ignore[arg-type]
     loss = losses.MultipleNegativesRankingLoss(model)  # InfoNCE: in-batch + hard negatives
     warmup = int(len(loader) * t["epochs"] * t["warmup_ratio"])
     model.fit(

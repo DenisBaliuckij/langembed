@@ -1,4 +1,5 @@
 """Phase 4: supervised contrastive fine-tuning on native-speaker triplets."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,7 +11,11 @@ from langembed.config import load_config
 
 
 def train_supervised(cfg: dict[str, Any]) -> None:
-    from sentence_transformers import InputExample, SentenceTransformer, losses
+    from sentence_transformers import (  # type: ignore[attr-defined]
+        InputExample,
+        SentenceTransformer,
+        losses,
+    )
     from torch.utils.data import DataLoader
 
     s = cfg["supervised"]
@@ -24,7 +29,7 @@ def train_supervised(cfg: dict[str, Any]) -> None:
     for line in path.open(encoding="utf-8"):
         r = json.loads(line)
         examples.append(InputExample(texts=[r["anchor"], r["positive"], r["negative"]]))
-    loader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
+    loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)  # type: ignore[arg-type]
     loss = losses.MultipleNegativesRankingLoss(model)
     model.fit(
         train_objectives=[(loader, loss)],
