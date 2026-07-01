@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru
+.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru pretrain-ru pretrain-ru-smoke
 
 PY ?= python
 
@@ -63,6 +63,12 @@ corpus-ru:
 
 tokenizer-ru:
 	$(PY) -m langembed.tokenizer.train_tokenizer --config configs/ru/tokenizer.yaml
+
+pretrain-ru:
+	$(PY) -m langembed.pretrain.train_mlm --config configs/ru/pretrain.yaml
+
+pretrain-ru-smoke:
+	$(PY) -m langembed.pretrain.train_mlm --config configs/ru/pretrain.yaml --smoke
 
 %:
 	@:
