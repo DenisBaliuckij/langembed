@@ -1,0 +1,11 @@
+language: ru
+data:
+  raw_paths:
+    - data/raw/voina_i_mir_ru.txt
+  out_path: data/corpus_ru.txt
+  test_path: data/sts_test_ru.jsonl
+tokenizer:
+  vocab_size: 16000
+  min_frequency: 2
+  unk_rate_max: 0.01
+  out_dir: artifacts/tokenizer_ru

@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc
+.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru
 
 PY ?= python
 
@@ -54,6 +54,15 @@ serve:
 
 smoke-dvc:
 	python -m dvc repro smoke/dvc.yaml
+
+extract-pdf-ru:
+	$(PY) -m langembed.data.extract_text --pdf data/raw/voina-i-mir.pdf --out data/raw/voina_i_mir_ru.txt
+
+corpus-ru:
+	$(PY) -m langembed.data.build_corpus --config configs/ru/tokenizer.yaml
+
+tokenizer-ru:
+	$(PY) -m langembed.tokenizer.train_tokenizer --config configs/ru/tokenizer.yaml
 
 %:
 	@:
