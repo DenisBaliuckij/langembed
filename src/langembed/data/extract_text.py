@@ -1,4 +1,4 @@
-"""Extract sentences from data/raw/voina-i-mir.pdf into the ru raw-corpus format (Phase 1, ru track)."""
+"""Extract sentences from data/raw/voina-i-mir.pdf into the ru raw-corpus format (ru track)."""
 
 from __future__ import annotations
 
