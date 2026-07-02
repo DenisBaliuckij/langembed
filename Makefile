@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru pretrain-ru pretrain-ru-smoke simcse-ru simcse-ru-smoke seed-sts-ru
+.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru pretrain-ru pretrain-ru-smoke simcse-ru simcse-ru-smoke seed-sts-ru eval-ru
 
 PY ?= python
 
@@ -78,6 +78,9 @@ simcse-ru-smoke:
 
 seed-sts-ru:
 	$(PY) scripts/seed_sts_pairs.py --config configs/ru/contrastive.yaml --n 60
+
+eval-ru:
+	$(PY) -m langembed.eval.evaluate --config configs/ru/eval.yaml
 
 %:
 	@:

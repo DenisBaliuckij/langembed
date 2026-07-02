@@ -1,0 +1,10 @@
+test_path: data/sts_test_ru.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_ru
+# Leakage guard is a documented no-op here: the ru STS pairs are corpus sentences
+# selected via active learning (Task 4), so they overlap data/corpus_ru.txt by design
+# — same precedent as configs/smoke/eval.yaml.
+train_paths: []
+metrics_path: metrics/eval_ru.json
