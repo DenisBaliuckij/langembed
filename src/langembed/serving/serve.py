@@ -31,5 +31,6 @@ class EmbedIn(BaseModel):
 @app.post("/embed")
 def embed(payload: EmbedIn) -> dict[str, Any]:
     model = _get_model()
-    vecs = model.encode([normalize(t) for t in payload.texts], normalize_embeddings=True)
+    lang = os.environ.get("LANGEMBED_LANG", "gu")
+    vecs = model.encode([normalize(t, lang) for t in payload.texts], normalize_embeddings=True)
     return {"embeddings": vecs.tolist(), "dim": int(vecs.shape[1])}
