@@ -175,3 +175,83 @@ def test_export_skips_below_positive_threshold(client: TestClient, db_session: S
         assert resp.json()["written"] == 0
     finally:
         os.unlink(out_path)
+
+
+# ---------------------------------------------------------------------------
+# GET/POST /label
+# ---------------------------------------------------------------------------
+
+
+def test_label_get_renders_next_pending_item(client: TestClient, db_session: Session) -> None:
+    _add_item(db_session, "la", "lb", status="pending")
+    db_session.commit()
+
+    resp = client.get("/label")
+    assert resp.status_code == 200
+    assert "la" in resp.text
+    assert "lb" in resp.text
+
+
+def test_label_get_no_pending_items(client: TestClient) -> None:
+    resp = client.get("/label")
+    assert resp.status_code == 200
+    assert "No pending items" in resp.text
+
+
+def test_label_post_persists_annotation_and_advances_status(
+    client: TestClient, db_session: Session
+) -> None:
+    item = _add_item(db_session, "la", "lb", status="pending")
+    db_session.commit()
+
+    resp = client.post("/label", data={"item_id": item.id, "score": 4}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/label"
+
+    db_session.expire_all()
+    updated = db_session.get(Item, item.id)
+    assert updated is not None
+    assert updated.status == "labeled"
+    ann = db_session.query(Annotation).filter_by(item_id=item.id).first()
+    assert ann is not None
+    assert ann.label == 4.0
+    assert ann.annotator_id == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /export-sts
+# ---------------------------------------------------------------------------
+
+
+def test_export_sts_writes_labeled_items_only(client: TestClient, db_session: Session) -> None:
+    ann = _add_annotator(db_session)
+    labeled = _add_item(db_session, "sa", "sb", status="labeled")
+    pending = _add_item(db_session, "pa", "pb", status="pending")
+    db_session.add(Annotation(item_id=labeled.id, annotator_id=ann.id, label=4.0))
+    db_session.commit()
+
+    with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+        out_path = f.name
+    try:
+        resp = client.get(f"/export-sts?out_path={out_path}")
+        assert resp.status_code == 200
+        assert resp.json()["written"] == 1
+        lines = [json.loads(line) for line in open(out_path, encoding="utf-8") if line.strip()]
+        assert len(lines) == 1
+        assert lines[0] == {"sentence_a": "sa", "sentence_b": "sb", "score": 4.0}
+        assert pending.status == "pending"
+    finally:
+        os.unlink(out_path)
+
+
+def test_export_sts_empty_when_nothing_labeled(client: TestClient, db_session: Session) -> None:
+    _add_item(db_session, "pa", "pb", status="pending")
+    db_session.commit()
+
+    with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+        out_path = f.name
+    try:
+        resp = client.get(f"/export-sts?out_path={out_path}")
+        assert resp.json()["written"] == 0
+    finally:
+        os.unlink(out_path)

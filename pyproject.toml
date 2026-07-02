@@ -39,6 +39,7 @@ serve = [
   "psycopg[binary]>=3.1",
   "celery>=5.3",
   "redis>=5.0",
+  "python-multipart>=0.0.9",
 ]
 dev = [
   "ruff>=0.4",

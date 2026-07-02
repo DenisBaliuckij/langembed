@@ -7,13 +7,14 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from langembed.annotation.db import get_db
-from langembed.annotation.models import Annotation, Item
+from langembed.annotation.models import Annotation, Annotator, Item
 from langembed.annotation.quality import aggregate
 
 app = FastAPI(title="langembed annotation")
@@ -85,3 +86,72 @@ def _build_triplets(
     for p, nneg in zip(pos, neg, strict=False):
         out.append({"anchor": p.sentence_a, "positive": p.sentence_b, "negative": nneg.sentence_b})
     return out
+
+
+def _get_or_create_annotator(db: Session, annotator_id: int = 1, name: str = "user") -> Annotator:
+    a = db.get(Annotator, annotator_id)
+    if a is None:
+        a = Annotator(id=annotator_id, name=name, reliability=1.0)
+        db.add(a)
+        db.commit()
+    return a
+
+
+@app.get("/label", response_class=HTMLResponse)
+def label_form(db: Session = Depends(get_db)) -> str:
+    item = db.scalars(
+        select(Item).where(Item.status == "pending").order_by(Item.uncertainty.desc()).limit(1)
+    ).first()
+    if item is None:
+        return "<html><body><p>No pending items left to label.</p></body></html>"
+    return f"""
+    <html><body>
+      <h3>Rate similarity (1 = unrelated, 5 = same meaning)</h3>
+      <p><b>A:</b> {item.sentence_a}</p>
+      <p><b>B:</b> {item.sentence_b}</p>
+      <form method="post" action="/label">
+        <input type="hidden" name="item_id" value="{item.id}" />
+        <input type="number" name="score" min="1" max="5" step="1" required />
+        <button type="submit">Submit</button>
+      </form>
+    </body></html>
+    """
+
+
+@app.post("/label")
+def label_submit(
+    item_id: int = Form(...), score: float = Form(...), db: Session = Depends(get_db)
+) -> RedirectResponse:
+    annotator = _get_or_create_annotator(db)
+    db.add(Annotation(item_id=item_id, annotator_id=annotator.id, label=score))
+    item = db.get(Item, item_id)
+    if item is not None:
+        item.status = "labeled"
+    db.commit()
+    return RedirectResponse(url="/label", status_code=303)
+
+
+@app.get("/export-sts")
+def export_sts(
+    out_path: str = "data/sts_test_ru.jsonl", db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """Export every labeled item as an STS pair (sentence_a, sentence_b, score)."""
+    items = db.scalars(select(Item).where(Item.status == "labeled")).all()
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with out.open("w", encoding="utf-8") as f:
+        for item in items:
+            labels = db.scalars(select(Annotation.label).where(Annotation.item_id == item.id)).all()
+            if not labels:
+                continue
+            score = aggregate(labels, [1.0] * len(labels))
+            f.write(
+                json.dumps(
+                    {"sentence_a": item.sentence_a, "sentence_b": item.sentence_b, "score": score},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+            written += 1
+    return {"written": written, "path": out_path}
