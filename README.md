@@ -521,7 +521,18 @@ Steps applied:
 
 No code change is needed for non-Indic languages — IndicNLP is skipped gracefully when `lang` is not an Indic code.
 
-**Why there's no lemmatization or POS-token substitution here.** Classical from-scratch embedding recipes (e.g. building static per-word vectors via SVD or word2vec) typically add a much heavier preparation step: lemmatize every word, replace pronouns/numerals with placeholder tokens, optionally strip proper nouns, and filter "garbage" tokens with tf-idf statistics. This project deliberately skips all of that. Every language track here trains a subword BPE tokenizer feeding a transformer (MLM pre-train → SimCSE contrastive), not per-word static vectors — subword tokenization already absorbs case/declension endings statistically, and MLM pre-training needs the full lexical signal (replacing pronouns/numerals with placeholders would remove information the masked-token objective relies on). Adding classical lemmatization would fight this architecture rather than help it, so `normalize()` stays limited to script/Unicode normalisation and whitespace collapse — the same function for every track, per the single-normalisation invariant.
+**Optional linguistic text preparation.** `normalize()` also accepts a third
+parameter, `spacy_model: str | None`. When set to a spaCy model name (e.g.
+`ru_core_news_sm`), it additionally lemmatizes every token and substitutes
+`PROPN`/`PRON`/`NUM` tokens and dotted abbreviations (e.g. `г.`, `и др.`) with
+fixed placeholder tokens (`person1`, `pron1`, `ordinal1`, `abbr1`), matching
+the manual reference pipeline's "Предобработка" step. This logic uses only
+spaCy's Universal POS tagset and a plain text-shape check for abbreviations —
+no per-language code branches — so any spaCy-supported language can opt in
+by passing its own model name via `spacy_model` in `configs/<lang>/*.yaml` or
+`run_pipeline.py --spacy-model`. Omitting `spacy_model` (the default) leaves
+`normalize()`'s output exactly as before — no track is affected unless it
+explicitly opts in.
 
 ### Phase 1 — Corpus building
 
