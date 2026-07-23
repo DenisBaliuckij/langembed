@@ -15,24 +15,48 @@ from langembed.config import load_config
 from langembed.preprocess import normalize
 
 
-def _h(s: str) -> str:
-    return hashlib.sha1(normalize(s).encode("utf-8")).hexdigest()
+def _h(s: str, lang: str = "gu", spacy_model: str | None = None) -> str:
+    return hashlib.sha1(normalize(s, lang, spacy_model).encode("utf-8")).hexdigest()
 
 
-def assert_no_leakage(test_path: str, train_paths: Sequence[str]) -> None:
+def assert_no_leakage(
+    test_path: str,
+    train_paths: Sequence[str],
+    lang: str = "gu",
+    spacy_model: str | None = None,
+) -> None:
     test_hashes: set[str] = set()
     for line in Path(test_path).open(encoding="utf-8"):
         if not line.strip():
             continue
         r = json.loads(line)
-        test_hashes |= {_h(r["sentence_a"]), _h(r["sentence_b"])}
+        test_hashes |= {
+            _h(r["sentence_a"], lang, spacy_model),
+            _h(r["sentence_b"], lang, spacy_model),
+        }
     for tp in train_paths:
         p = Path(tp)
         if not p.exists():
             continue
         for line in p.open(encoding="utf-8"):
-            if line.strip() and _h(line) in test_hashes:
+            if line.strip() and _h(line, lang, spacy_model) in test_hashes:
                 raise RuntimeError(f"Test leakage detected via {tp}")
+
+
+def _load_test_pairs(
+    test_path: str, score_scale: float, lang: str = "gu", spacy_model: str | None = None
+) -> tuple[list[str], list[str], list[float]]:
+    sa: list[str] = []
+    sb: list[str] = []
+    scores: list[float] = []
+    for line in Path(test_path).open(encoding="utf-8"):
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        sa.append(normalize(r["sentence_a"], lang, spacy_model))
+        sb.append(normalize(r["sentence_b"], lang, spacy_model))
+        scores.append(r["score"] / score_scale)
+    return sa, sb, scores
 
 
 def _retrieval_at_k(model: Any, sa: list[str], sb: list[str], k: int) -> dict[str, float]:
@@ -65,17 +89,10 @@ def evaluate(cfg: dict[str, Any]) -> dict[str, float]:
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.sentence_transformer.evaluation import EmbeddingSimilarityEvaluator
 
-    assert_no_leakage(cfg["test_path"], cfg.get("train_paths", []))
-    sa: list[str] = []
-    sb: list[str] = []
-    scores: list[float] = []
-    for line in Path(cfg["test_path"]).open(encoding="utf-8"):
-        if not line.strip():
-            continue
-        r = json.loads(line)
-        sa.append(r["sentence_a"])
-        sb.append(r["sentence_b"])
-        scores.append(r["score"] / cfg["score_scale"])
+    lang = cfg.get("language", "gu")
+    spacy_model = cfg.get("spacy_model")
+    assert_no_leakage(cfg["test_path"], cfg.get("train_paths", []), lang, spacy_model)
+    sa, sb, scores = _load_test_pairs(cfg["test_path"], cfg["score_scale"], lang, spacy_model)
 
     k = cfg.get("retrieval_k", 10)
     spearman_evaluator = EmbeddingSimilarityEvaluator(sa, sb, scores, name="gu-sts")
