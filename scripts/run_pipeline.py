@@ -124,6 +124,14 @@ def main() -> None:
     )
     ap.add_argument("--vocab-size", type=int, default=16000)
     ap.add_argument(
+        "--spacy-model",
+        default=None,
+        help=(
+            "spaCy model for text preparation (lemmatize + POS-token "
+            "substitution), e.g. ru_core_news_sm; omit to skip"
+        ),
+    )
+    ap.add_argument(
         "--skip-eval",
         action="store_true",
         help="skip labeling/eval; only produce corpus, encoder, SimCSE model and embeddings",
@@ -140,6 +148,7 @@ def main() -> None:
 
     tokenizer_cfg = {
         "language": lang,
+        "spacy_model": args.spacy_model,
         "data": {"raw_paths": raw_paths, "out_path": corpus_path, "test_path": sts_test_path},
         "tokenizer": {
             "vocab_size": args.vocab_size,
@@ -276,6 +285,8 @@ def main() -> None:
             stop_server(server)
 
         eval_cfg = {
+            "language": lang,
+            "spacy_model": args.spacy_model,
             "test_path": sts_test_path,
             "score_scale": 5.0,
             "retrieval_k": 5,
@@ -311,6 +322,8 @@ def main() -> None:
         "LANGEMBED_MODEL_DIR": f"artifacts/simcse_{lang}",
         "LANGEMBED_LANG": lang,
     }
+    if args.spacy_model:
+        serve_env["LANGEMBED_SPACY_MODEL"] = args.spacy_model
     server = start_server("langembed.serving.serve:app", serve_port, env=serve_env)
     try:
         run(

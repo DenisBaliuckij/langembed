@@ -1,3 +1,5 @@
+language: ru
+spacy_model: ru_core_news_sm
 test_path: data/sts_test_ru.jsonl
 score_scale: 5.0
 retrieval_k: 5

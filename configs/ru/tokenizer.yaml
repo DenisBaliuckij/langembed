@@ -1,4 +1,5 @@
 language: ru
+spacy_model: ru_core_news_sm
 data:
   raw_paths:
     - data/raw/voina_i_mir_ru.txt
