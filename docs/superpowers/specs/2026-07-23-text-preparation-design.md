@@ -30,12 +30,27 @@ parameter. When set, it runs the named spaCy pipeline and does:
 1. lemmatize every token (`token.lemma_.lower()`)
 2. replace `PROPN`/`PRON`/`NUM` tokens with fixed placeholder strings
    (`person1` / `pron1` / `ordinal1`), mirroring the doc's `pos_dict` example
-3. replace tokens spaCy's Universal Dependencies morphology tags
-   `Abbr=Yes` with `abbr1`
+3. replace abbreviation-shaped tokens (contains a `.` and at least one
+   letter, e.g. `т.д.`, `и др.`, `г.`) with `abbr1`
 
-All three rules key off spaCy's **Universal POS/morphology tagset**, which is
-identical across every spaCy language model — so the substitution logic
-itself has no Russian-specific code. Which model to use (`ru_core_news_sm`,
+**Correction from the original draft, found during implementation
+verification:** the first draft of this spec proposed detecting
+abbreviations via spaCy's Universal Dependencies `Abbr=Yes` morphological
+feature. Empirically probing `ru_core_news_sm` (`spacy.load(...)`, feeding it
+`"т.д. и т.п."`, `"г. Москва и др. города"`) showed this feature is **never
+set** by that model — abbreviations get tagged `PUNCT` (`т.д.`) or `NOUN`
+(`г.`) with empty morphology instead, so the `Abbr=Yes` check would silently
+never fire. Rule 3 above (a simple text-shape check: `"." in token.text and
+any(ch.isalpha() for ch in token.text)`) was verified against the same probe
+and correctly catches all three cases regardless of the POS tag the model
+assigns them. It's also a plain string check with no model-specific
+dependency, which if anything is a better fit for the "no per-language logic"
+constraint than a morphological feature whose presence varies by model.
+
+Rules 1-2 key off spaCy's **Universal POS tagset**, which is identical across
+every spaCy language model — so the substitution logic itself has no
+Russian-specific code; rule 3 is a plain string check, equally
+language-agnostic. Which model to use (`ru_core_news_sm`,
 `fr_core_news_sm`, ...) is never chosen by the library; it comes from
 `configs/<lang>/*.yaml` (new `spacy_model` field) or `run_pipeline.py`'s new
 `--spacy-model` flag, exactly like `--lang` already works today. A language
@@ -70,6 +85,10 @@ def _spacy_pipeline(model_name: str) -> object | None:
         return None
 
 
+def _looks_like_abbreviation(text: str) -> bool:
+    return "." in text and any(ch.isalpha() for ch in text)
+
+
 def _prepare_tokens(text: str, model_name: str) -> str | None:
     nlp = _spacy_pipeline(model_name)
     if nlp is None:
@@ -80,7 +99,7 @@ def _prepare_tokens(text: str, model_name: str) -> str | None:
             continue
         if tok.text in _RESERVED_TOKENS:
             out.append(tok.text)  # already-prepared text stays a fixed point
-        elif tok.morph.get("Abbr") == ["Yes"]:
+        elif _looks_like_abbreviation(tok.text):
             out.append(_ABBR_TOKEN)
         elif tok.pos_ in _POS_TOKENS:
             out.append(_POS_TOKENS[tok.pos_])
@@ -266,7 +285,8 @@ no duplicated normalization logic anywhere.
   - lemmatization: an inflected Russian word normalizes to its lemma
   - `PROPN`/`PRON`/`NUM` substitution: a sentence with a name, a pronoun, and
     a number produces `person1`/`pron1`/`ordinal1` in the right positions
-  - abbreviation substitution: a token with `Abbr=Yes` becomes `abbr1`
+  - abbreviation substitution: a dotted-abbreviation token (e.g. `г.`) becomes
+    `abbr1`
   - **idempotency**: `normalize(normalize(x, "ru", "ru_core_news_sm"), "ru", "ru_core_news_sm") == normalize(x, "ru", "ru_core_news_sm")`
   - graceful skip: `normalize(x, "ru", "nonexistent-model-xyz")` doesn't raise
     and returns the pre-spaCy-stage output
