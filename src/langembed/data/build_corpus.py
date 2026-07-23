@@ -13,11 +13,13 @@ from langembed.data.dedup import dedup
 from langembed.preprocess import normalize
 
 
-def _h(s: str) -> str:
-    return hashlib.sha1(normalize(s).encode("utf-8")).hexdigest()
+def _h(s: str, lang: str = "gu", spacy_model: str | None = None) -> str:
+    return hashlib.sha1(normalize(s, lang, spacy_model).encode("utf-8")).hexdigest()
 
 
-def load_test_hashes(test_path: str | Path) -> set[str]:
+def load_test_hashes(
+    test_path: str | Path, lang: str = "gu", spacy_model: str | None = None
+) -> set[str]:
     """Hash every sentence of the STS test set so we can detect leakage."""
     hashes: set[str] = set()
     p = Path(test_path)
@@ -29,22 +31,26 @@ def load_test_hashes(test_path: str | Path) -> set[str]:
         r = json.loads(line)
         for key in ("sentence_a", "sentence_b"):
             if key in r:
-                hashes.add(_h(r[key]))
+                hashes.add(_h(r[key], lang, spacy_model))
     return hashes
 
 
 def build_corpus(
-    raw_paths: Sequence[str], out_path: str | Path, test_hashes: set[str], lang: str = "gu"
+    raw_paths: Sequence[str],
+    out_path: str | Path,
+    test_hashes: set[str],
+    lang: str = "gu",
+    spacy_model: str | None = None,
 ) -> int:
     """Normalize -> dedup -> guard -> write JSONL-free one-sentence-per-line corpus."""
     docs: list[str] = []
     for rp in raw_paths:
         for line in Path(rp).open(encoding="utf-8"):
-            t = normalize(line, lang)
+            t = normalize(line, lang, spacy_model)
             if t:
                 docs.append(t)
     docs = dedup(docs)
-    leaked: Iterable[str] = (d for d in docs if _h(d) in test_hashes)
+    leaked: Iterable[str] = (d for d in docs if _h(d, lang, spacy_model) in test_hashes)
     n_leaked = sum(1 for _ in leaked)
     if n_leaked:
         raise RuntimeError(f"Test leakage: {n_leaked} corpus lines overlap the STS test set")
@@ -61,8 +67,11 @@ def main() -> None:
     ap.add_argument("--config", required=True)
     args = ap.parse_args()
     cfg = load_config(args.config)
-    th = load_test_hashes(cfg["data"]["test_path"])
-    n = build_corpus(cfg["data"]["raw_paths"], cfg["data"]["out_path"], th, cfg["language"])
+    spacy_model = cfg.get("spacy_model")
+    th = load_test_hashes(cfg["data"]["test_path"], cfg["language"], spacy_model)
+    n = build_corpus(
+        cfg["data"]["raw_paths"], cfg["data"]["out_path"], th, cfg["language"], spacy_model
+    )
     print(f"corpus lines: {n}")
 
 
