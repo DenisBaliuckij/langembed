@@ -521,6 +521,8 @@ Steps applied:
 
 No code change is needed for non-Indic languages — IndicNLP is skipped gracefully when `lang` is not an Indic code.
 
+**Why there's no lemmatization or POS-token substitution here.** Classical from-scratch embedding recipes (e.g. building static per-word vectors via SVD or word2vec) typically add a much heavier preparation step: lemmatize every word, replace pronouns/numerals with placeholder tokens, optionally strip proper nouns, and filter "garbage" tokens with tf-idf statistics. This project deliberately skips all of that. Every language track here trains a subword BPE tokenizer feeding a transformer (MLM pre-train → SimCSE contrastive), not per-word static vectors — subword tokenization already absorbs case/declension endings statistically, and MLM pre-training needs the full lexical signal (replacing pronouns/numerals with placeholders would remove information the masked-token objective relies on). Adding classical lemmatization would fight this architecture rather than help it, so `normalize()` stays limited to script/Unicode normalisation and whitespace collapse — the same function for every track, per the single-normalisation invariant.
+
 ### Phase 1 — Corpus building
 
 ```bash
