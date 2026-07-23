@@ -32,5 +32,8 @@ class EmbedIn(BaseModel):
 def embed(payload: EmbedIn) -> dict[str, Any]:
     model = _get_model()
     lang = os.environ.get("LANGEMBED_LANG", "gu")
-    vecs = model.encode([normalize(t, lang) for t in payload.texts], normalize_embeddings=True)
+    spacy_model = os.environ.get("LANGEMBED_SPACY_MODEL")
+    vecs = model.encode(
+        [normalize(t, lang, spacy_model) for t in payload.texts], normalize_embeddings=True
+    )
     return {"embeddings": vecs.tolist(), "dim": int(vecs.shape[1])}

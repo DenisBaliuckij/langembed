@@ -77,3 +77,44 @@ def test_embed_empty_list(monkeypatch: pytest.MonkeyPatch) -> None:
     resp = client.post("/embed", json={"texts": []})
     assert resp.status_code == 200
     assert resp.json()["embeddings"] == []
+
+
+def test_embed_passes_lang_and_spacy_model_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LANGEMBED_LANG and LANGEMBED_SPACY_MODEL must both be forwarded to normalize()."""
+    import langembed.serving.serve as srv
+
+    captured: list[tuple[str, str, Any]] = []
+
+    def _fake_normalize(text: str, lang: str = "gu", spacy_model: str | None = None) -> str:
+        captured.append((text, lang, spacy_model))
+        return text
+
+    monkeypatch.setattr(srv, "normalize", _fake_normalize)
+    monkeypatch.setenv("LANGEMBED_LANG", "ru")
+    monkeypatch.setenv("LANGEMBED_SPACY_MODEL", "ru_core_news_sm")
+    monkeypatch.setattr(srv, "_model", None)
+    monkeypatch.setattr(srv, "_get_model", lambda: _FakeModel())
+
+    client = TestClient(srv.app)
+    client.post("/embed", json={"texts": ["hello"]})
+    assert captured == [("hello", "ru", "ru_core_news_sm")]
+
+
+def test_embed_spacy_model_env_unset_defaults_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without LANGEMBED_SPACY_MODEL set, normalize() must receive spacy_model=None."""
+    import langembed.serving.serve as srv
+
+    captured: list[tuple[str, str, Any]] = []
+
+    def _fake_normalize(text: str, lang: str = "gu", spacy_model: str | None = None) -> str:
+        captured.append((text, lang, spacy_model))
+        return text
+
+    monkeypatch.setattr(srv, "normalize", _fake_normalize)
+    monkeypatch.delenv("LANGEMBED_SPACY_MODEL", raising=False)
+    monkeypatch.setattr(srv, "_model", None)
+    monkeypatch.setattr(srv, "_get_model", lambda: _FakeModel())
+
+    client = TestClient(srv.app)
+    client.post("/embed", json={"texts": ["hello"]})
+    assert captured == [("hello", "gu", None)]
