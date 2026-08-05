@@ -48,6 +48,45 @@ def test_build_auto_sts_pairs_drops_failed_paraphrases(monkeypatch, tmp_path):
     assert len(pairs) > 0
 
 
+def test_build_auto_sts_pairs_warns_on_total_paraphrase_failure(monkeypatch, tmp_path, capsys):
+    """A total translation outage (every anchor fails) must print a visible warning to
+    stderr instead of silently shrinking the paraphrase tier to zero unnoticed."""
+    monkeypatch.setattr(auto_label, "back_translate", lambda *a, **k: None)
+    sentences = [f"sentence {i}" for i in range(12)]
+
+    auto_label.build_auto_sts_pairs(
+        sentences,
+        n=9,
+        providers=["google"],
+        pivot_lang="en",
+        source_lang="ru",
+        cache_path=tmp_path / "cache.jsonl",
+        seed=1,
+    )
+
+    captured = capsys.readouterr()
+    assert "WARNING" in captured.err
+    assert "paraphrase" in captured.err
+
+
+def test_build_auto_sts_pairs_no_warning_when_paraphrases_succeed(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(auto_label, "back_translate", _fake_paraphrase)
+    sentences = [f"sentence {i}" for i in range(12)]
+
+    auto_label.build_auto_sts_pairs(
+        sentences,
+        n=9,
+        providers=["google"],
+        pivot_lang="en",
+        source_lang="ru",
+        cache_path=tmp_path / "cache.jsonl",
+        seed=1,
+    )
+
+    captured = capsys.readouterr()
+    assert "WARNING" not in captured.err
+
+
 def test_build_auto_sts_pairs_deterministic(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_label, "back_translate", _fake_paraphrase)
     sentences = [f"sentence {i}" for i in range(12)]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+import sys
 from pathlib import Path
 
 from langembed.data.backtranslate import back_translate, load_cache
@@ -27,7 +28,12 @@ def build_auto_sts_pairs(
     paraphrases (high similarity), adjacent corpus sentences (mid similarity), and
     random distant sentence pairs (low similarity). Pairs where every translation
     provider fails are dropped, not padded, so the paraphrase tier may end up smaller
-    than the other two.
+    than the other two. If back-translation fails for every attempted anchor, a warning
+    is printed to stderr so a total translation outage is visible rather than silent.
+
+    Note: `n_each = max(1, n // 3)` uses floor division, so for `n` not evenly divisible
+    by 3 the three tiers combined can return fewer than `n` pairs even when every
+    back-translation succeeds.
     """
     if len(sentences) < 2:
         return []
@@ -40,10 +46,19 @@ def build_auto_sts_pairs(
     pairs: list[tuple[str, str, float]] = []
 
     anchors = rng.sample(sentences, min(n_each, len(sentences)))
+    n_paraphrase = 0
     for s in anchors:
         para = back_translate(s, providers, pivot_lang, source_lang, cache, cache_path, delay=delay)
         if para and para != s:
             pairs.append((s, para, PARAPHRASE_SCORE))
+            n_paraphrase += 1
+
+    if anchors and n_paraphrase == 0:
+        print(
+            f"WARNING: back-translation produced 0 paraphrase pairs out of {len(anchors)} "
+            "attempted -- check translate provider availability",
+            file=sys.stderr,
+        )
 
     adjacent_idx = list(range(len(sentences) - 1))
     for i in rng.sample(adjacent_idx, min(n_each, len(adjacent_idx))):
