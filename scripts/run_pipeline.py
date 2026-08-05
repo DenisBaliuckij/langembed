@@ -111,7 +111,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--lang", required=True, help="language code, e.g. ru, fr, de")
     ap.add_argument(
-        "--input", nargs="+", required=True, type=Path, help="one or more PDF corpus files"
+        "--input", nargs="+", default=None, type=Path, help="one or more PDF corpus files"
+    )
+    ap.add_argument(
+        "--raw-input",
+        nargs="+",
+        default=None,
+        type=Path,
+        help=(
+            "one or more pre-extracted plain-text files (one sentence per line) to use "
+            "as the corpus directly, skipping PDF extraction. Exactly one of --input / "
+            "--raw-input is required."
+        ),
     )
     ap.add_argument(
         "--output", default=Path("output"), type=Path, help="final deliverable directory"
@@ -170,6 +181,19 @@ def _resolve_repo_path(path: str) -> Path:
     return p if p.is_absolute() else REPO_ROOT / p
 
 
+def resolve_raw_text_inputs(paths: list[Path]) -> list[str]:
+    """Validate pre-extracted plain-text corpus files and return absolute path strings
+    for direct use as `build_corpus`'s `raw_paths` (one sentence per line, no PDF
+    extraction needed). Raises FileNotFoundError naming the first missing path."""
+    resolved = []
+    for p in paths:
+        rp = p if p.is_absolute() else REPO_ROOT / p
+        if not rp.is_file():
+            raise FileNotFoundError(f"--raw-input file not found: {rp}")
+        resolved.append(str(rp))
+    return resolved
+
+
 def generate_auto_sts(
     corpus_path: str,
     sts_test_path: str,
@@ -220,15 +244,23 @@ def generate_auto_sts(
 
 
 def main() -> None:
-    args = build_arg_parser().parse_args()
+    ap = build_arg_parser()
+    args = ap.parse_args()
+    if bool(args.input) == bool(args.raw_input):
+        ap.error("exactly one of --input or --raw-input is required")
 
     lang = args.lang
     cfg_dir = REPO_ROOT / "configs" / lang
     corpus_path = f"data/corpus_{lang}.txt"
     sts_test_path = f"data/sts_test_{lang}.jsonl"
 
-    print(f"=== [{lang}] 1/6 extraction ({len(args.input)} PDF(s)) ===")
-    raw_paths = extract_inputs(lang, args.input)
+    if args.raw_input:
+        n_files = len(args.raw_input)
+        print(f"=== [{lang}] 1/6 raw text input ({n_files} file(s), no PDF extraction) ===")
+        raw_paths = resolve_raw_text_inputs(args.raw_input)
+    else:
+        print(f"=== [{lang}] 1/6 extraction ({len(args.input)} PDF(s)) ===")
+        raw_paths = extract_inputs(lang, args.input)
 
     tokenizer_cfg = {
         "language": lang,

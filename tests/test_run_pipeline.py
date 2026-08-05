@@ -147,3 +147,46 @@ def test_auto_label_cli_flag_set():
 
     assert args.auto_label is True
     assert args.pivot_lang == "hi"
+
+
+def test_resolve_raw_text_inputs_absolute_paths(tmp_path):
+    f1 = tmp_path / "corpus1.txt"
+    f2 = tmp_path / "corpus2.txt"
+    f1.write_text("a\n", encoding="utf-8")
+    f2.write_text("b\n", encoding="utf-8")
+
+    resolved = run_pipeline.resolve_raw_text_inputs([f1, f2])
+
+    assert resolved == [str(f1), str(f2)]
+
+
+def test_resolve_raw_text_inputs_relative_path_resolves_against_repo_root(monkeypatch, tmp_path):
+    fake_repo_root = tmp_path / "fake_repo"
+    (fake_repo_root / "data" / "raw").mkdir(parents=True)
+    corpus = fake_repo_root / "data" / "raw" / "corpus.txt"
+    corpus.write_text("a\n", encoding="utf-8")
+    monkeypatch.setattr(run_pipeline, "REPO_ROOT", fake_repo_root)
+
+    resolved = run_pipeline.resolve_raw_text_inputs([Path("data/raw/corpus.txt")])
+
+    assert resolved == [str(corpus)]
+
+
+def test_resolve_raw_text_inputs_missing_file_raises(tmp_path):
+    import pytest
+
+    with pytest.raises(FileNotFoundError, match="does_not_exist.txt"):
+        run_pipeline.resolve_raw_text_inputs([tmp_path / "does_not_exist.txt"])
+
+
+def test_input_and_raw_input_are_mutually_exclusive_and_required():
+    ap = run_pipeline.build_arg_parser()
+
+    # neither given -> args parse fine (argparse level), the exactly-one check lives in main()
+    args_neither = ap.parse_args(["--lang", "ru"])
+    assert args_neither.input is None
+    assert args_neither.raw_input is None
+
+    args_raw = ap.parse_args(["--lang", "ru", "--raw-input", "corpus.txt"])
+    assert args_raw.raw_input == [Path("corpus.txt")]
+    assert args_raw.input is None
