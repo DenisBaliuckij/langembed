@@ -49,6 +49,9 @@ dev = [
   "pytest>=8.2",
   "dvc>=3.50",
 ]
+translate = [
+  "deep-translator>=1.11",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
