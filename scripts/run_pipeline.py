@@ -105,7 +105,7 @@ def stop_server(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
-def main() -> None:
+def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -136,7 +136,64 @@ def main() -> None:
         action="store_true",
         help="skip labeling/eval; only produce corpus, encoder, SimCSE model and embeddings",
     )
-    args = ap.parse_args()
+    ap.add_argument(
+        "--auto-label",
+        action="store_true",
+        help=(
+            "skip the manual /label step; generate silver STS pairs via "
+            "back-translation instead (no human, no docker/postgres needed for this step)"
+        ),
+    )
+    ap.add_argument(
+        "--translate-providers",
+        nargs="+",
+        default=["google", "mymemory"],
+        help="free translation backends for back-translation (deep-translator provider names)",
+    )
+    ap.add_argument(
+        "--pivot-lang", default="en", help="pivot language for the back-translation round-trip"
+    )
+    ap.add_argument(
+        "--translate-rpm",
+        type=float,
+        default=20.0,
+        help="max back-translation requests/minute (politeness limit for free MT APIs)",
+    )
+    return ap
+
+
+def generate_auto_sts(
+    corpus_path: str,
+    sts_test_path: str,
+    lang: str,
+    providers: list[str],
+    pivot_lang: str,
+    requests_per_minute: float,
+    n_labels: int,
+) -> int:
+    """Auto-label branch of pipeline step 5: build silver STS pairs via back-translation
+    and write them to `sts_test_path`. Returns the number of pairs written. Unlike the
+    manual-labeling branch, this has no docker/server/human-input dependency.
+    """
+    from langembed.annotation.auto_label import build_auto_sts_pairs, write_sts_pairs
+
+    with open(corpus_path, encoding="utf-8") as f:
+        sentences = [ln.strip() for ln in f if ln.strip()]
+    cache_path = f"data/backtranslation_cache_{lang}.jsonl"
+    pairs = build_auto_sts_pairs(
+        sentences,
+        n=n_labels,
+        providers=providers,
+        pivot_lang=pivot_lang,
+        source_lang=lang,
+        cache_path=cache_path,
+        requests_per_minute=requests_per_minute,
+    )
+    return write_sts_pairs(pairs, sts_test_path)
+
+
+def main() -> None:
+    args = build_arg_parser().parse_args()
 
     lang = args.lang
     cfg_dir = REPO_ROOT / "configs" / lang
@@ -252,37 +309,50 @@ def main() -> None:
     )
 
     if not args.skip_eval:
-        print(f"=== [{lang}] 5/6 human-in-the-loop STS labeling + eval ===")
-        run(["docker", "compose", "up", "-d", "postgres"])
-        run(
-            [
-                sys.executable,
-                "scripts/seed_sts_pairs.py",
-                "--config",
-                str(contrastive_path),
-                "--n",
-                str(args.n_labels),
-            ]
-        )
-
-        label_port = free_port(8001)
-        server = start_server("langembed.annotation.api:app", label_port)
-        try:
-            input(
-                f"\nLabel pairs at http://localhost:{label_port}/label (rate 1-5), "
-                "then press Enter here to continue...\n"
+        if args.auto_label:
+            print(f"=== [{lang}] 5/6 auto-label STS pairs (back-translation, no human) ===")
+            n_written = generate_auto_sts(
+                corpus_path,
+                sts_test_path,
+                lang,
+                args.translate_providers,
+                args.pivot_lang,
+                args.translate_rpm,
+                args.n_labels,
             )
-            import httpx
-
-            resp = httpx.get(
-                f"http://localhost:{label_port}/export-sts",
-                params={"out_path": sts_test_path},
-                timeout=30,
+            print(f"  wrote {n_written} auto-labeled STS pairs -> {sts_test_path}")
+        else:
+            print(f"=== [{lang}] 5/6 human-in-the-loop STS labeling + eval ===")
+            run(["docker", "compose", "up", "-d", "postgres"])
+            run(
+                [
+                    sys.executable,
+                    "scripts/seed_sts_pairs.py",
+                    "--config",
+                    str(contrastive_path),
+                    "--n",
+                    str(args.n_labels),
+                ]
             )
-            resp.raise_for_status()
-            print(" ", resp.json())
-        finally:
-            stop_server(server)
+
+            label_port = free_port(8001)
+            server = start_server("langembed.annotation.api:app", label_port)
+            try:
+                input(
+                    f"\nLabel pairs at http://localhost:{label_port}/label (rate 1-5), "
+                    "then press Enter here to continue...\n"
+                )
+                import httpx
+
+                resp = httpx.get(
+                    f"http://localhost:{label_port}/export-sts",
+                    params={"out_path": sts_test_path},
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                print(" ", resp.json())
+            finally:
+                stop_server(server)
 
         eval_cfg = {
             "language": lang,
