@@ -20,11 +20,12 @@ def load_cache(path: str | Path) -> dict[str, str]:
     cache: dict[str, str] = {}
     if not p.exists():
         return cache
-    for line in p.open(encoding="utf-8"):
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        cache[row["key"]] = row["value"]
+    with p.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            cache[row["key"]] = row["value"]
     return cache
 
 
