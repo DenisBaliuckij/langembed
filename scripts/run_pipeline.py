@@ -141,7 +141,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "skip the manual /label step; generate silver STS pairs via "
-            "back-translation instead (no human, no docker/postgres needed for this step)"
+            "back-translation instead (no human, no docker/postgres needed for this step); "
+            "sends corpus sentences to external translation services (Google/MyMemory)"
         ),
     )
     ap.add_argument(
@@ -162,6 +163,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return ap
 
 
+def _resolve_repo_path(path: str) -> Path:
+    """Resolve `path` against REPO_ROOT unless it's already absolute, matching the
+    convention `run()`/`extract_inputs()` get for free from `cwd=REPO_ROOT`."""
+    p = Path(path)
+    return p if p.is_absolute() else REPO_ROOT / p
+
+
 def generate_auto_sts(
     corpus_path: str,
     sts_test_path: str,
@@ -174,12 +182,27 @@ def generate_auto_sts(
     """Auto-label branch of pipeline step 5: build silver STS pairs via back-translation
     and write them to `sts_test_path`. Returns the number of pairs written. Unlike the
     manual-labeling branch, this has no docker/server/human-input dependency.
-    """
-    from langembed.annotation.auto_label import build_auto_sts_pairs, write_sts_pairs
 
-    with open(corpus_path, encoding="utf-8") as f:
+    `corpus_path`, `sts_test_path`, and the derived cache path are resolved against
+    REPO_ROOT (like every other path in this file) so the pipeline behaves the same
+    regardless of the process's current working directory.
+    """
+    from langembed.annotation.auto_label import (
+        ADJACENT_SCORE,
+        PARAPHRASE_SCORE,
+        RANDOM_SCORE,
+        build_auto_sts_pairs,
+        write_sts_pairs,
+    )
+
+    print("  (sends corpus sentences to external MT services: " + ", ".join(providers) + ")")
+
+    corpus_abs = _resolve_repo_path(corpus_path)
+    sts_test_abs = _resolve_repo_path(sts_test_path)
+    cache_path = _resolve_repo_path(f"data/backtranslation_cache_{lang}.jsonl")
+
+    with corpus_abs.open(encoding="utf-8") as f:
         sentences = [ln.strip() for ln in f if ln.strip()]
-    cache_path = f"data/backtranslation_cache_{lang}.jsonl"
     pairs = build_auto_sts_pairs(
         sentences,
         n=n_labels,
@@ -189,7 +212,11 @@ def generate_auto_sts(
         cache_path=cache_path,
         requests_per_minute=requests_per_minute,
     )
-    return write_sts_pairs(pairs, sts_test_path)
+    n_para = sum(1 for _, _, score in pairs if score == PARAPHRASE_SCORE)
+    n_adj = sum(1 for _, _, score in pairs if score == ADJACENT_SCORE)
+    n_rand = sum(1 for _, _, score in pairs if score == RANDOM_SCORE)
+    print(f"  tiers: paraphrase={n_para} adjacent={n_adj} random={n_rand} -> {sts_test_abs}")
+    return write_sts_pairs(pairs, sts_test_abs)
 
 
 def main() -> None:
@@ -366,6 +393,10 @@ def main() -> None:
             # docs/ru-embeddings-report.pdf, section 3, for why train_paths must stay empty.
             "train_paths": [],
             "metrics_path": f"metrics/eval_{lang}.json",
+            # Auto-labeled silver pairs have only three discrete score values (4.8/2.0/0.3),
+            # a very different distribution from human 1-5 aggregate scores -- record which
+            # mode produced this eval config so metrics from the two aren't compared blind.
+            "label_source": "auto" if args.auto_label else "manual",
         }
         eval_path = cfg_dir / "eval.yaml"
         write_yaml(eval_path, eval_cfg)
