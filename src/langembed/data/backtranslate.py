@@ -64,7 +64,20 @@ def back_translate(
     `max_retries` retries each. Successful results are memoized into `cache` and appended
     to `cache_path` immediately, so a re-run of a partially-completed job skips
     already-translated text instead of re-spending free-tier quota.
+
+    `ImportError` (missing `deep_translator`) and `ValueError` (unknown provider name) are
+    programming/config errors, not transient network failures -- they propagate immediately
+    instead of being retried and silently swallowed. Only genuinely transient errors (network,
+    timeout, rate limiting, ...) are retried. A provider call that returns a falsy result
+    (`None` or empty string) is treated as a failure and is never cached, so it can't
+    permanently short-circuit future retries.
+
+    `delay` is the target seconds-per-round-trip (derived from a requests-per-minute budget);
+    it is split in half and slept after each of the two real `_translate_one` calls so the
+    two outbound requests that make up one round trip are themselves spaced apart, rather than
+    firing back-to-back.
     """
+    half_delay = delay / 2 if delay else 0.0
     for provider in providers:
         key = _cache_key(text, provider, pivot_lang, source_lang)
         if key in cache:
@@ -72,14 +85,27 @@ def back_translate(
         for _attempt in range(max_retries + 1):
             try:
                 pivot_text = _translate_one(text, provider, source_lang, pivot_lang)
-                back = _translate_one(pivot_text, provider, pivot_lang, source_lang)
+            except (ImportError, ValueError):
+                raise
             except Exception:
                 if delay:
                     time.sleep(delay)
                 continue
+            if half_delay:
+                time.sleep(half_delay)
+            try:
+                back = _translate_one(pivot_text, provider, pivot_lang, source_lang)
+            except (ImportError, ValueError):
+                raise
+            except Exception:
+                if half_delay:
+                    time.sleep(half_delay)
+                continue
+            if half_delay:
+                time.sleep(half_delay)
+            if not back:
+                continue
             cache[key] = back
             append_cache(cache_path, key, back)
-            if delay:
-                time.sleep(delay)
             return back
     return None

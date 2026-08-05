@@ -3,7 +3,7 @@
 PY ?= python
 
 setup:
-	pip install -e ".[ml,serve,dev]"
+	pip install -e ".[ml,serve,dev,translate]"
 
 lint:
 	ruff check src tests
