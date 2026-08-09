@@ -171,6 +171,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=20.0,
         help="max back-translation requests/minute (politeness limit for free MT APIs)",
     )
+    ap.add_argument(
+        "--auto-label-method",
+        choices=["backtranslation", "svd"],
+        default="backtranslation",
+        help=(
+            "which automated method to use when --auto-label is set: 'backtranslation' "
+            "(default, needs network access to free MT services) or 'svd' (fully offline "
+            "TF-IDF + truncated SVD cosine similarity)"
+        ),
+    )
+    ap.add_argument(
+        "--svd-components",
+        type=int,
+        default=100,
+        help="SVD dimensionality for --auto-label-method svd (ignored otherwise)",
+    )
     return ap
 
 
@@ -240,6 +256,34 @@ def generate_auto_sts(
     n_adj = sum(1 for _, _, score in pairs if score == ADJACENT_SCORE)
     n_rand = sum(1 for _, _, score in pairs if score == RANDOM_SCORE)
     print(f"  tiers: paraphrase={n_para} adjacent={n_adj} random={n_rand} -> {sts_test_abs}")
+    return write_sts_pairs(pairs, sts_test_abs)
+
+
+def generate_svd_sts(
+    corpus_path: str,
+    sts_test_path: str,
+    n_components: int,
+    n_labels: int,
+) -> int:
+    """Auto-label branch of pipeline step 5, SVD variant: build silver STS pairs via
+    TF-IDF+SVD cosine similarity and write them to `sts_test_path`. Returns the number of
+    pairs written. Fully offline -- no network calls, no docker/server/human dependency.
+
+    `corpus_path` and `sts_test_path` are resolved against REPO_ROOT, like every other
+    path in this file, so the pipeline behaves the same regardless of the process's CWD.
+    """
+    from langembed.annotation.auto_label import write_sts_pairs
+    from langembed.annotation.svd_label import build_svd_sts_pairs
+
+    print("  (fully offline: TF-IDF + truncated SVD, no external services)")
+
+    corpus_abs = _resolve_repo_path(corpus_path)
+    sts_test_abs = _resolve_repo_path(sts_test_path)
+
+    with corpus_abs.open(encoding="utf-8") as f:
+        sentences = [ln.strip() for ln in f if ln.strip()]
+    pairs = build_svd_sts_pairs(sentences, n=n_labels, n_components=n_components)
+    print(f"  {len(pairs)} pairs -> {sts_test_abs}")
     return write_sts_pairs(pairs, sts_test_abs)
 
 
@@ -368,7 +412,13 @@ def main() -> None:
     )
 
     if not args.skip_eval:
-        if args.auto_label:
+        if args.auto_label and args.auto_label_method == "svd":
+            print(f"=== [{lang}] 5/6 auto-label STS pairs (SVD, no human) ===")
+            n_written = generate_svd_sts(
+                corpus_path, sts_test_path, args.svd_components, args.n_labels
+            )
+            print(f"  wrote {n_written} auto-labeled STS pairs -> {sts_test_path}")
+        elif args.auto_label:
             print(f"=== [{lang}] 5/6 auto-label STS pairs (back-translation, no human) ===")
             n_written = generate_auto_sts(
                 corpus_path,
@@ -429,6 +479,7 @@ def main() -> None:
             # a very different distribution from human 1-5 aggregate scores -- record which
             # mode produced this eval config so metrics from the two aren't compared blind.
             "label_source": "auto" if args.auto_label else "manual",
+            "label_method": args.auto_label_method if args.auto_label else None,
         }
         eval_path = cfg_dir / "eval.yaml"
         write_yaml(eval_path, eval_cfg)

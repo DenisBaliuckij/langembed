@@ -114,6 +114,94 @@ def test_generate_auto_sts_discloses_external_mt_services(monkeypatch, tmp_path,
     assert "google" in out and "mymemory" in out
 
 
+def test_generate_svd_sts_writes_pairs(tmp_path):
+    corpus = tmp_path / "corpus_ru.txt"
+    corpus.write_text(
+        "\n".join(f"sentence about topic {i % 4} number {i}" for i in range(20)), encoding="utf-8"
+    )
+    sts_out = tmp_path / "sts_test_ru.jsonl"
+
+    n = run_pipeline.generate_svd_sts(str(corpus), str(sts_out), 3, 9)
+
+    assert n == 9
+    lines = sts_out.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 9
+    row = json.loads(lines[0])
+    assert set(row.keys()) == {"sentence_a", "sentence_b", "score"}
+
+
+def test_generate_svd_sts_resolves_relative_paths_against_repo_root(monkeypatch, tmp_path):
+    fake_repo_root = tmp_path / "fake_repo"
+    (fake_repo_root / "data").mkdir(parents=True)
+    (fake_repo_root / "data" / "corpus_de.txt").write_text(
+        "\n".join(f"sentence about topic {i % 4} number {i}" for i in range(20)), encoding="utf-8"
+    )
+    monkeypatch.setattr(run_pipeline, "REPO_ROOT", fake_repo_root)
+
+    other_cwd = tmp_path / "somewhere_else"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+
+    n = run_pipeline.generate_svd_sts("data/corpus_de.txt", "data/sts_test_de.jsonl", 3, 9)
+
+    assert n == 9
+    assert (fake_repo_root / "data" / "sts_test_de.jsonl").exists()
+
+
+def test_svd_label_cli_flag_defaults():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(["--lang", "ru", "--input", "book.pdf"])
+
+    assert args.auto_label_method == "backtranslation"
+    assert args.svd_components == 100
+
+
+def test_svd_label_cli_flag_set():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(
+        [
+            "--lang",
+            "ru",
+            "--input",
+            "book.pdf",
+            "--auto-label",
+            "--auto-label-method",
+            "svd",
+            "--svd-components",
+            "50",
+        ]
+    )
+
+    assert args.auto_label_method == "svd"
+    assert args.svd_components == 50
+
+
+def test_auto_label_method_rejects_unknown_value():
+    ap = run_pipeline.build_arg_parser()
+    import pytest
+
+    with pytest.raises(SystemExit):
+        ap.parse_args(["--lang", "ru", "--input", "book.pdf", "--auto-label-method", "bogus"])
+
+
+def test_eval_cfg_records_label_method():
+    """Same source-text-check approach as test_eval_cfg_records_label_source (main() runs
+    a long unmocked subprocess pipeline with no test coverage by design)."""
+    source = (Path(__file__).resolve().parent.parent / "scripts" / "run_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"label_method": args.auto_label_method if args.auto_label else None' in source
+
+
+def test_main_branches_to_svd_when_method_is_svd():
+    """Same source-text-check approach as test_eval_cfg_records_label_source."""
+    source = (Path(__file__).resolve().parent.parent / "scripts" / "run_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'args.auto_label and args.auto_label_method == "svd"' in source
+    assert "generate_svd_sts(" in source
+
+
 def test_auto_label_help_text_discloses_external_services():
     ap = run_pipeline.build_arg_parser()
     assert "translation services" in ap.format_help()
