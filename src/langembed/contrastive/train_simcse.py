@@ -3,10 +3,41 @@
 from __future__ import annotations
 
 import argparse
+import random
 import warnings
 from typing import Any
 
 from langembed.config import load_config
+
+# Bounds SimCSE training data size (and therefore peak memory) regardless of
+# raw corpus size. gu's ~13.8M-sentence corpus OOM-killed this step when the
+# whole corpus was materialized twice in memory (once as strings, again
+# wrapped in InputExample); pa's ~6.3M-sentence corpus trained fine, so this
+# stays comfortably below that already-proven scale.
+MAX_TRAIN_EXAMPLES = 2_000_000
+SMOKE_EXAMPLES = 256
+
+
+def _reservoir_sample(path: str, k: int, seed: int) -> list[str]:
+    """Uniformly sample up to k non-empty lines from `path` in one streaming
+    pass, without ever holding the full file in memory (Algorithm R). A file
+    with fewer than k lines is returned in full, in its original order."""
+    rng = random.Random(seed)
+    reservoir: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        i = 0
+        for line in f:
+            s = line.strip()
+            if not s:
+                continue
+            if i < k:
+                reservoir.append(s)
+            else:
+                j = rng.randint(0, i)
+                if j < k:
+                    reservoir[j] = s
+            i += 1
+    return reservoir
 
 
 def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
@@ -29,10 +60,8 @@ def train_simcse(cfg: dict[str, Any], smoke: bool = False) -> None:
     pool = Pooling(word.get_embedding_dimension(), pooling_mode="mean")
     model = SentenceTransformer(modules=[word, pool])
 
-    with open(s["sentences_path"], encoding="utf-8") as f:
-        sents = [ln.strip() for ln in f if ln.strip()]
-    if smoke:
-        sents = sents[:256]
+    n_target = SMOKE_EXAMPLES if smoke else MAX_TRAIN_EXAMPLES
+    sents = _reservoir_sample(s["sentences_path"], n_target, cfg.get("seed", 42))
     examples = [InputExample(texts=[x, x]) for x in sents]  # dropout gives the positive
     loader: DataLoader = DataLoader(examples, batch_size=s["batch_size"], shuffle=True)
     loss = MultipleNegativesRankingLoss(model)
