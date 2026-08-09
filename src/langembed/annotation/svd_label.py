@@ -44,7 +44,11 @@ def build_svd_sts_pairs(
     )
 
     tfidf = TfidfVectorizer().fit_transform(fit_sentences)
-    svd = TruncatedSVD(n_components=n_components, random_state=seed)
+    # Clamp n_components to avoid sklearn ValueError on small vocabularies or corpora.
+    # TruncatedSVD requires n_components < n_features and n_components + 1 <= n_samples.
+    n_features = tfidf.shape[1]
+    effective_n_components = min(n_components, n_features - 1, len(fit_sentences) - 1)
+    svd = TruncatedSVD(n_components=effective_n_components, random_state=seed)
     vectors = svd.fit_transform(tfidf)
 
     pairs: list[tuple[str, str, float]] = []

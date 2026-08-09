@@ -51,3 +51,18 @@ def test_build_svd_sts_pairs_deterministic():
 
 def test_build_svd_sts_pairs_too_few_sentences_returns_empty():
     assert svd_label.build_svd_sts_pairs(["only one sentence"], n=9) == []
+
+
+def test_build_svd_sts_pairs_small_corpus_with_default_n_components():
+    """Small corpus with default n_components=100 should clamp and not crash."""
+    sentences = [
+        "apple banana cherry date",
+        "egg fig grape honey",
+        "ice jam kiwi lemon",
+    ]
+    pairs = svd_label.build_svd_sts_pairs(sentences, n=2)  # default n_components=100
+    assert len(pairs) == 2
+    for a, b, score in pairs:
+        assert a in sentences
+        assert b in sentences
+        assert 0.0 <= score <= 5.0
