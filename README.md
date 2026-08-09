@@ -20,13 +20,14 @@ A from-scratch sentence-embedding pipeline for low-resource languages, with a na
 10. [Creating and using embeddings](#creating-and-using-embeddings)
 11. [Serving — /embed endpoint](#serving--embed-endpoint)
 12. [Annotation service and active learning](#annotation-service-and-active-learning)
-13. [Evaluation](#evaluation)
-14. [MLflow experiment tracking](#mlflow-experiment-tracking)
-15. [Testing](#testing)
-16. [Docker and docker-compose](#docker-and-docker-compose)
-17. [Adapting to another language](#adapting-to-another-language)
-18. [Makefile reference](#makefile-reference)
-19. [Troubleshooting](#troubleshooting)
+13. [Automated labeling (no human annotator)](#automated-labeling-no-human-annotator)
+14. [Evaluation](#evaluation)
+15. [MLflow experiment tracking](#mlflow-experiment-tracking)
+16. [Testing](#testing)
+17. [Docker and docker-compose](#docker-and-docker-compose)
+18. [Adapting to another language](#adapting-to-another-language)
+19. [Makefile reference](#makefile-reference)
+20. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -860,6 +861,42 @@ python scripts/seed_gold.py
 ```
 
 Run once before starting an annotation campaign to populate the gold calibration table.
+
+---
+
+## Automated labeling (no human annotator)
+
+Phase 5 (`=== [{lang}] 5/6 ... ===`) normally blocks on a human opening `http://localhost:PORT/label`
+and rating STS pairs 1–5 (see [Annotation service and active learning](#annotation-service-and-active-learning)).
+Passing `--auto-label` to `scripts/run_pipeline.py` skips that step entirely and generates
+silver-standard STS pairs automatically instead, so the whole pipeline can run unattended
+start-to-finish. Manual labeling stays the default — `--auto-label` is opt-in.
+
+Two methods are available via `--auto-label-method`:
+
+| Method | Flag value | How it works | Network? |
+|---|---|---|---|
+| Back-translation (default) | `backtranslation` | Round-trips corpus sentences through a free MT service and back; produces one measured "paraphrase" tier plus two positional heuristic tiers (adjacent / random sentence pairs) with fixed scores | Yes — calls Google/MyMemory via `deep-translator` |
+| SVD (LSA) | `svd` | Fits TF-IDF + truncated SVD over the corpus and scores random sentence pairs by real cosine similarity in that space — every pair gets a computed score, not a fixed tier constant | No — fully offline |
+
+```bash
+# back-translation (default method once --auto-label is set)
+python scripts/run_pipeline.py --lang gu --raw-input data/raw/gu_nllb.txt --auto-label
+
+# back-translation with explicit tuning
+python scripts/run_pipeline.py --lang gu --raw-input data/raw/gu_nllb.txt \
+    --auto-label --translate-providers google mymemory --pivot-lang en --translate-rpm 20
+
+# SVD (fully offline, no external services)
+python scripts/run_pipeline.py --lang gu --raw-input data/raw/gu_nllb.txt \
+    --auto-label --auto-label-method svd --svd-components 100
+```
+
+The generated `configs/<lang>/eval.yaml` records which mode produced the STS test set via
+`label_source` (`"auto"` / `"manual"`) and, for automated runs, `label_method`
+(`"backtranslation"` / `"svd"`) — back-translation's 3 fixed score values and SVD's continuous
+scores have very different distributions, so this keeps eval runs from the two methods from being
+compared blind.
 
 ---
 
