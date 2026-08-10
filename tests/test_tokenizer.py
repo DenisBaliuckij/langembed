@@ -66,3 +66,33 @@ def test_unk_rate_below_threshold(tmp_path: pathlib.Path) -> None:
     tok = train_tokenizer(str(corpus), out, vocab_size=300, min_frequency=1)
     stats = diagnose(tok, str(corpus))
     assert stats["unk_rate"] < 0.01, f"unk_rate too high: {stats['unk_rate']}"
+
+
+def test_train_tokenizer_bounds_corpus_size(monkeypatch, tmp_path: pathlib.Path) -> None:
+    """BpeTrainer's memory usage grows with total input size -- my's ~6M-sentence and
+    ml's ~18M-sentence corpora both SIGKILL-OOM'd training on the full corpus. This must
+    cap how many sentences ever reach the trainer, regardless of raw corpus size."""
+    import langembed.tokenizer.train_tokenizer as train_tokenizer_module
+
+    n_total = 50_000
+    corpus = tmp_path / "corpus.txt"
+    corpus.write_text("\n".join(f"sentence number {i}" for i in range(n_total)), encoding="utf-8")
+    out = str(tmp_path / "tok")
+
+    seen_sentence_count = {}
+    real_reservoir_sample = train_tokenizer_module.reservoir_sample
+
+    def spying_reservoir_sample(path, k, seed):
+        result = real_reservoir_sample(path, k, seed)
+        seen_sentence_count["k"] = k
+        seen_sentence_count["n"] = len(result)
+        return result
+
+    monkeypatch.setattr(train_tokenizer_module, "reservoir_sample", spying_reservoir_sample)
+
+    train_tokenizer_module.train_tokenizer(
+        str(corpus), out, vocab_size=300, min_frequency=1, max_train_sentences=1000
+    )
+
+    assert seen_sentence_count["k"] == 1000
+    assert seen_sentence_count["n"] == 1000

@@ -7,10 +7,23 @@ from pathlib import Path
 from typing import Any
 
 from langembed.config import load_config
+from langembed.data.reservoir_sample import reservoir_sample
+
+# Bounds tokenizer training data size (and therefore peak memory) regardless of
+# raw corpus size. BpeTrainer's word/pretoken frequency table grows with total
+# input size; my's ~6M-sentence corpus and ml's ~18M-sentence corpus both
+# SIGKILL-OOM'd training on the full corpus. Vocab quality saturates well
+# before this many sentences, so bounding here doesn't cost coverage.
+MAX_TOKENIZER_TRAIN_SENTENCES = 1_000_000
 
 
 def train_tokenizer(
-    corpus_path: str, out_dir: str, vocab_size: int = 32000, min_frequency: int = 2
+    corpus_path: str,
+    out_dir: str,
+    vocab_size: int = 32000,
+    min_frequency: int = 2,
+    max_train_sentences: int = MAX_TOKENIZER_TRAIN_SENTENCES,
+    seed: int = 42,
 ) -> Any:
     from tokenizers import Tokenizer, models, normalizers, pre_tokenizers, processors, trainers
     from transformers import PreTrainedTokenizerFast
@@ -23,7 +36,8 @@ def train_tokenizer(
         min_frequency=min_frequency,
         special_tokens=["<s>", "<pad>", "</s>", "<unk>", "<mask>"],
     )
-    tok.train([corpus_path], trainer)
+    sentences = reservoir_sample(corpus_path, max_train_sentences, seed)
+    tok.train_from_iterator(sentences, trainer)
     tok.post_processor = processors.RobertaProcessing(
         sep=("</s>", tok.token_to_id("</s>")),
         cls=("<s>", tok.token_to_id("<s>")),
@@ -67,7 +81,11 @@ def main() -> None:
     cfg = load_config(args.config)
     t = cfg["tokenizer"]
     fast = train_tokenizer(
-        cfg["data"]["out_path"], t["out_dir"], t["vocab_size"], t["min_frequency"]
+        cfg["data"]["out_path"],
+        t["out_dir"],
+        t["vocab_size"],
+        t["min_frequency"],
+        seed=cfg.get("seed", 42),
     )
     stats = diagnose(fast, cfg["data"]["out_path"])
     print("diagnostics:", stats)
