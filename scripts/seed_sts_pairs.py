@@ -11,6 +11,12 @@ from langembed.annotation.active_learning import uncertainty
 from langembed.annotation.db import get_db
 from langembed.annotation.models import Item
 from langembed.config import load_config
+from langembed.data.reservoir_sample import reservoir_sample
+
+# build_candidates() makes one adjacent pair per sentence handed to it, then uncertainty()
+# encodes every pair on top of that -- for a multi-million-line corpus that's millions of
+# CPU-bound encode calls just to pick `n` candidates for human review. Bound the pool first.
+MAX_CANDIDATE_SENTENCES = 5000
 
 
 def build_candidates(sentences: list[str], n_random: int, seed: int) -> list[tuple[str, str]]:
@@ -49,7 +55,12 @@ def select_pairs(
 
 
 def seed(
-    config_path: str, n: int = 60, n_random_pool: int = 400, max_reuse: int = 2, seed_value: int = 42
+    config_path: str,
+    n: int = 60,
+    n_random_pool: int = 400,
+    max_reuse: int = 2,
+    seed_value: int = 42,
+    max_candidate_sentences: int = MAX_CANDIDATE_SENTENCES,
 ) -> int:
     import datasets  # noqa: F401
     import pandas  # noqa: F401
@@ -58,8 +69,9 @@ def seed(
     from sentence_transformers import SentenceTransformer
 
     cfg = load_config(config_path)
-    with open(cfg["simcse"]["sentences_path"], encoding="utf-8") as f:
-        sentences = [ln.strip() for ln in f if ln.strip()]
+    sentences = reservoir_sample(
+        cfg["simcse"]["sentences_path"], max_candidate_sentences, seed_value
+    )
 
     candidates = build_candidates(sentences, n_random_pool, seed_value)
     model = SentenceTransformer(cfg["simcse"]["out_dir"])
