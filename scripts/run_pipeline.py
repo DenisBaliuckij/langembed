@@ -288,6 +288,17 @@ def generate_svd_sts(
     return write_sts_pairs(pairs, sts_test_abs)
 
 
+def clear_stale_sts_test(sts_test_path: str) -> None:
+    """Remove any STS test file left over from a previous incomplete run before this
+    invocation regenerates the corpus. `sts_test_<lang>.jsonl` is written entirely by
+    this pipeline (stage 5), never a pre-supplied input -- a stale copy from an
+    earlier run that reached stage 5 but failed later would otherwise poison stage
+    2's leakage guard, since auto-labeled STS pairs are drawn from the corpus by
+    design and would appear as "leakage" against the freshly rebuilt corpus.
+    """
+    _resolve_repo_path(sts_test_path).unlink(missing_ok=True)
+
+
 def main() -> None:
     ap = build_arg_parser()
     args = ap.parse_args()
@@ -298,6 +309,7 @@ def main() -> None:
     cfg_dir = REPO_ROOT / "configs" / lang
     corpus_path = f"data/corpus_{lang}.txt"
     sts_test_path = f"data/sts_test_{lang}.jsonl"
+    clear_stale_sts_test(sts_test_path)
 
     if args.raw_input:
         n_files = len(args.raw_input)

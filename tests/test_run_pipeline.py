@@ -217,6 +217,24 @@ def test_eval_cfg_records_label_source():
     assert '"label_source": "auto" if args.auto_label else "manual"' in source
 
 
+def test_clear_stale_sts_test_removes_existing_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(run_pipeline, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    stale = tmp_path / "data" / "sts_test_gu.jsonl"
+    stale.write_text('{"sentence_a": "a", "sentence_b": "b", "score": 4.8}\n', encoding="utf-8")
+
+    run_pipeline.clear_stale_sts_test("data/sts_test_gu.jsonl")
+
+    assert not stale.exists()
+
+
+def test_clear_stale_sts_test_no_op_when_file_absent(monkeypatch, tmp_path):
+    monkeypatch.setattr(run_pipeline, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+
+    run_pipeline.clear_stale_sts_test("data/sts_test_gu.jsonl")  # must not raise
+
+
 def test_auto_label_cli_flag_defaults():
     ap = run_pipeline.build_arg_parser()
     args = ap.parse_args(["--lang", "ru", "--input", "book.pdf"])
