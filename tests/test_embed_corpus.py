@@ -90,8 +90,8 @@ def test_embed_corpus_aborts_mid_write_if_space_runs_out(tmp_path, monkeypatch):
     config_path = _write_config(tmp_path, sentences_path)
     out_path = tmp_path / "out" / "embeddings.jsonl"
 
-    # Real disk_usage for the pre-flight check and the first in-loop check (row 0),
-    # then simulate the disk filling up from the second in-loop check onward.
+    # Real disk_usage for the pre-flight check and the first chunk's check,
+    # then simulate the disk filling up from the second chunk's check onward.
     real_disk_usage = shutil.disk_usage
     calls = {"n": 0}
 
@@ -102,11 +102,42 @@ def test_embed_corpus_aborts_mid_write_if_space_runs_out(tmp_path, monkeypatch):
         return shutil._ntuple_diskusage(100, 99, 1)
 
     monkeypatch.setattr(shutil, "disk_usage", flaky_disk_usage)
-    monkeypatch.setattr(embed_corpus_module, "DISK_CHECK_INTERVAL", 2)
+    monkeypatch.setattr(embed_corpus_module, "ENCODE_CHUNK_SIZE", 2)
 
     with pytest.raises(embed_corpus_module.DiskSpaceError):
         embed_corpus_module.embed_corpus(str(config_path), str(out_path), min_free_gb=5.0)
 
-    # Rows written before the check tripped are left in place for inspection.
+    # Rows written before the check tripped (the first chunk of 2) are left in place.
     lines = out_path.read_text(encoding="utf-8").strip().splitlines()
     assert 0 < len(lines) < 5
+
+
+def test_embed_corpus_never_encodes_more_than_chunk_size_at_once(tmp_path, monkeypatch):
+    """Regression test: a single model.encode() call over the whole corpus held every
+    embedding vector in memory before any writing started, OOM-killing a real
+    ~13.8M-sentence run. Encoding must happen in bounded chunks instead."""
+    max_chunk_seen = {"n": 0}
+
+    class _SpyModel(_FakeModel):
+        def encode(self, sentences, normalize_embeddings=True, show_progress_bar=False):
+            max_chunk_seen["n"] = max(max_chunk_seen["n"], len(sentences))
+            return super().encode(sentences, normalize_embeddings, show_progress_bar)
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", lambda out_dir: _SpyModel(out_dir)
+    )
+    sentences_path = tmp_path / "corpus.txt"
+    sentences_path.write_text(
+        "\n".join(f"sentence {i}" for i in range(25)) + "\n", encoding="utf-8"
+    )
+    config_path = _write_config(tmp_path, sentences_path)
+    out_path = tmp_path / "out" / "embeddings.jsonl"
+
+    monkeypatch.setattr(embed_corpus_module, "ENCODE_CHUNK_SIZE", 10)
+
+    n = embed_corpus_module.embed_corpus(str(config_path), str(out_path))
+
+    assert n == 25
+    assert max_chunk_seen["n"] <= 10
+    lines = out_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 25

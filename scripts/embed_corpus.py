@@ -9,8 +9,11 @@ from pathlib import Path
 from langembed.config import load_config
 from langembed.disk_guard import DiskSpaceError, check_free_space, estimate_jsonl_embedding_bytes
 
-# How often (in written rows) to re-check free disk space during the write loop.
-DISK_CHECK_INTERVAL = 2000
+# Encoding+writing in fixed-size chunks bounds peak memory to O(chunk size)
+# regardless of corpus size -- a single model.encode() call over the whole
+# corpus held every sentence's embedding vector in memory at once before any
+# writing started, which OOM-killed this script on a ~13.8M-sentence corpus.
+ENCODE_CHUNK_SIZE = 50_000
 
 
 def embed_corpus(config_path: str, out_path: str, min_free_gb: float = 5.0) -> int:
@@ -34,15 +37,15 @@ def embed_corpus(config_path: str, out_path: str, min_free_gb: float = 5.0) -> i
     estimated_bytes = estimate_jsonl_embedding_bytes(len(sentences), dim)
     check_free_space(out.parent, min_free_gb, reserve_bytes=estimated_bytes)
 
-    vecs = model.encode(sentences, normalize_embeddings=True, show_progress_bar=True)
-
     with out.open("w", encoding="utf-8") as f:
-        for i, (text, vec) in enumerate(zip(sentences, vecs, strict=True)):
-            if i % DISK_CHECK_INTERVAL == 0:
-                check_free_space(out.parent, min_free_gb)
-            f.write(
-                json.dumps({"text": text, "embedding": vec.tolist()}, ensure_ascii=False) + "\n"
-            )
+        for chunk_start in range(0, len(sentences), ENCODE_CHUNK_SIZE):
+            chunk = sentences[chunk_start : chunk_start + ENCODE_CHUNK_SIZE]
+            check_free_space(out.parent, min_free_gb)
+            vecs = model.encode(chunk, normalize_embeddings=True, show_progress_bar=True)
+            for text, vec in zip(chunk, vecs, strict=True):
+                f.write(
+                    json.dumps({"text": text, "embedding": vec.tolist()}, ensure_ascii=False) + "\n"
+                )
     return len(sentences)
 
 
