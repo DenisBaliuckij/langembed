@@ -176,6 +176,34 @@ def test_svd_label_cli_flag_set():
     assert args.svd_components == 50
 
 
+def test_train_llm_cli_flag_defaults():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(["--lang", "ru", "--input", "book.pdf"])
+
+    assert args.train_llm is False
+    assert args.llm_minutes == 25.0
+
+
+def test_train_llm_cli_flag_set():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(
+        ["--lang", "ru", "--input", "book.pdf", "--train-llm", "--llm-minutes", "10"]
+    )
+
+    assert args.train_llm is True
+    assert args.llm_minutes == 10.0
+
+
+def test_main_calls_train_gpt_when_train_llm_set():
+    """Same source-text-check approach as test_eval_cfg_records_label_source (main() runs
+    a long unmocked subprocess pipeline with no test coverage by design)."""
+    source = (Path(__file__).resolve().parent.parent / "scripts" / "run_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    assert "if args.train_llm:" in source
+    assert "langembed.llm.train_gpt" in source
+
+
 def test_auto_label_method_rejects_unknown_value():
     ap = run_pipeline.build_arg_parser()
     import pytest

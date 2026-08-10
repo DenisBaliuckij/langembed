@@ -87,6 +87,14 @@ def calibrate_pretrain_steps(config_path: Path, target_minutes: float) -> int:
     return max(50, round(smoke_steps * (target_minutes * 60) / elapsed))
 
 
+def calibrate_llm_steps(config_path: Path, target_minutes: float) -> int:
+    t0 = time.time()
+    run([sys.executable, "-m", "langembed.llm.train_gpt", "--config", str(config_path), "--smoke"])
+    elapsed = time.time() - t0
+    smoke_steps = yaml.safe_load(config_path.read_text(encoding="utf-8"))["smoke"]["max_steps"]
+    return max(50, round(smoke_steps * (target_minutes * 60) / elapsed))
+
+
 def start_server(module_app: str, port: int, env: dict[str, str] | None = None) -> subprocess.Popen:
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", module_app, "--port", str(port)],
@@ -188,6 +196,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=100,
         help="SVD dimensionality for --auto-label-method svd (ignored otherwise)",
     )
+    ap.add_argument(
+        "--train-llm",
+        action="store_true",
+        help=(
+            "also train a GPT-style causal LM warm-started from the encoder's "
+            "embedding table, after the final embeddings are produced (optional, off by default)"
+        ),
+    )
+    ap.add_argument("--llm-minutes", type=float, default=25.0, help="target GPT training wall time")
     return ap
 
 
@@ -542,6 +559,43 @@ def main() -> None:
     metrics_src = REPO_ROOT / "metrics" / f"eval_{lang}.json"
     if metrics_src.exists():
         shutil.copy(metrics_src, out_dir / "eval.json")
+
+    if args.train_llm:
+        print(f"=== [{lang}] GPT-style LLM (optional, warm-started from encoder) ===")
+        llm_cfg: dict[str, Any] = {
+            "seed": 42,
+            "encoder_dir": f"artifacts/encoder_{lang}",
+            "tokenizer_dir": f"artifacts/tokenizer_{lang}",
+            "corpus_path": corpus_path,
+            "out_dir": f"artifacts/gpt_{lang}",
+            "model": {
+                "hidden_size": 256,
+                "num_hidden_layers": 4,
+                "num_attention_heads": 4,
+                "intermediate_size": 1024,
+                "max_position_embeddings": 130,
+                "max_seq_length": 128,
+            },
+            "training": {
+                "per_device_train_batch_size": 16,
+                "gradient_accumulation_steps": 1,
+                "learning_rate": 0.0005,
+                "weight_decay": 0.01,
+                "warmup_steps": 200,
+                "max_steps": 1500,
+                "fp16": False,
+                "save_steps": 500,
+                "logging_steps": 50,
+            },
+            "smoke": {"max_steps": 50},
+        }
+        llm_path = cfg_dir / "llm.yaml"
+        write_yaml(llm_path, llm_cfg)
+        max_steps = calibrate_llm_steps(llm_path, args.llm_minutes)
+        llm_cfg["training"]["max_steps"] = max_steps
+        write_yaml(llm_path, llm_cfg)
+        print(f"  calibrated max_steps={max_steps} (target ~{args.llm_minutes} min)")
+        run([sys.executable, "-m", "langembed.llm.train_gpt", "--config", str(llm_path)])
 
     print(f"\nDone. Final embeddings for '{lang}': {embeddings_path}")
 
