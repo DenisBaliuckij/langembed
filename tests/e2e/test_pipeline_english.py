@@ -111,11 +111,47 @@ def pipeline(tmp_path_factory: pytest.TempPathFactory):
     train_simcse(simcse_cfg, smoke=True)
     assert simcse_dir.exists(), "simcse output directory not created"
 
+    # ── Step 5: GPT-style LLM (smoke: warm-started from encoder) ─────────
+    from langembed.llm.train_gpt import train_gpt
+
+    gpt_dir = base / "gpt"
+    gpt_cfg: dict = {
+        "seed": 42,
+        "encoder_dir": str(encoder_dir),
+        "tokenizer_dir": str(tokenizer_dir),
+        "corpus_path": str(corpus_file),
+        "report_to": [],
+        "model": {
+            "hidden_size": 128,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "intermediate_size": 256,
+            "max_position_embeddings": 64,
+            "max_seq_length": 64,
+        },
+        "training": {
+            "per_device_train_batch_size": 8,
+            "gradient_accumulation_steps": 1,
+            "learning_rate": 5e-4,
+            "weight_decay": 0.01,
+            "warmup_steps": 5,
+            "max_steps": 200,
+            "fp16": False,
+            "save_steps": 100,
+            "logging_steps": 10,
+        },
+        "smoke": {"max_steps": 50},
+        "out_dir": str(gpt_dir),
+    }
+    train_gpt(gpt_cfg, smoke=True)
+    assert (gpt_dir / "config.json").exists(), "gpt config.json missing"
+
     return {
         "corpus_file": corpus_file,
         "tokenizer_dir": tokenizer_dir,
         "encoder_dir": encoder_dir,
         "simcse_dir": simcse_dir,
+        "gpt_dir": gpt_dir,
         "metrics_file": metrics_file,
     }
 
@@ -136,6 +172,26 @@ def test_encoder_config_present(pipeline: dict) -> None:
 def test_simcse_model_saved(pipeline: dict) -> None:
     assert pipeline["simcse_dir"].exists()
     assert any(pipeline["simcse_dir"].iterdir()), "simcse_dir is empty"
+
+
+def test_gpt_model_saved(pipeline: dict) -> None:
+    assert pipeline["gpt_dir"].exists()
+    cfg_file = pipeline["gpt_dir"] / "config.json"
+    assert cfg_file.exists()
+    weight_files = list(pipeline["gpt_dir"].glob("*.safetensors")) + list(
+        pipeline["gpt_dir"].glob("pytorch_model.bin")
+    )
+    assert weight_files, "no weight files in gpt_dir"
+
+
+def test_gpt_model_reloadable_and_generates(pipeline: dict) -> None:
+    from transformers import GPT2LMHeadModel, PreTrainedTokenizerFast
+
+    model = GPT2LMHeadModel.from_pretrained(str(pipeline["gpt_dir"]))
+    tok = PreTrainedTokenizerFast.from_pretrained(str(pipeline["gpt_dir"]))
+    inputs = tok("The dog", return_tensors="pt")
+    output = model.generate(**inputs, max_new_tokens=5, do_sample=False)
+    assert output.shape[1] > inputs["input_ids"].shape[1]
 
 
 def test_embeddings_l2_normalised(pipeline: dict) -> None:
