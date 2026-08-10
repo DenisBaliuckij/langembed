@@ -29,6 +29,22 @@ def test_writes_corpus(tmp_path):
     assert out.exists()
 
 
+def test_build_corpus_tolerates_truncated_utf8_tail(tmp_path):
+    """Some source archives are truncated mid-download, cutting raw text off
+    mid-UTF-8-character. build_corpus must not crash on this -- it should keep the
+    valid preceding lines rather than raising UnicodeDecodeError on the broken tail."""
+    raw = tmp_path / "raw.txt"
+    # Two valid lines, then a deliberately truncated 3-byte UTF-8 sequence (2 of 3
+    # bytes present, no trailing newline) -- simulates a download cut off mid-character.
+    raw.write_bytes(b"alpha beta gamma\ndelta epsilon zeta\n" + b"\xe0\xa0")
+    out = tmp_path / "out.txt"
+
+    n = build_corpus([str(raw)], str(out), set())
+
+    assert n >= 2
+    assert out.exists()
+
+
 def test_leakage_guard_uses_spacy_model_consistently(tmp_path):
     """A corpus line and a test sentence that are identical before lemmatization must still
     collide as leaked even though lemmatization changes their surface form, proving _h() and

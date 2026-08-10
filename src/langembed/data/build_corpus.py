@@ -45,7 +45,12 @@ def build_corpus(
     """Normalize -> dedup -> guard -> write JSONL-free one-sentence-per-line corpus."""
     docs: list[str] = []
     for rp in raw_paths:
-        for line in Path(rp).open(encoding="utf-8"):
+        # errors="replace": some source archives are truncated mid-download (confirmed
+        # via matching .crdownload files sitting alongside them), which can cut off a
+        # raw-text file mid-UTF-8-character. Strict decoding crashes the whole corpus
+        # build on that single broken tail; replacing the few undecodable bytes lets the
+        # millions of valid preceding lines through instead.
+        for line in Path(rp).open(encoding="utf-8", errors="replace"):
             t = normalize(line, lang, spacy_model)
             if t:
                 docs.append(t)
