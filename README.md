@@ -982,6 +982,36 @@ The trained model lands in `artifacts/gpt_<lang>/` and can be re-run standalone 
 python -m langembed.llm.train_gpt --config configs/gu/llm.yaml
 ```
 
+### Validation run (real GPU infrastructure, `ur`)
+
+The feature was validated end-to-end on the actual deployment host — Docker + GPU, not just the
+CPU e2e test fixture — using `ur`'s already-completed encoder and corpus (no PDF/corpus/tokenizer
+work needed; both artifacts already existed from `ur`'s prior full pipeline run):
+
+- **Warm-start source:** `artifacts/encoder_ur` — `hidden_size=256`, `vocab_size=16000`, matching
+  the GPT model's config exactly, so the embedding-table copy succeeded with no shape mismatch.
+- **Corpus:** `data/corpus_ur.txt`, 398,955 sentences (the same corpus `ur`'s encoder/SimCSE were
+  trained on).
+- **Run shape:** smoke (50 steps) to confirm the code path, then one bounded real run —
+  `max_steps=400`, `per_device_train_batch_size=16`, `learning_rate=0.0005`, `warmup_steps=50` —
+  deliberately small so the test wouldn't contend for GPU/memory with a much larger pipeline run
+  (`gu`, ~13.8M sentences) that was finishing on the same host at the time.
+- **Result:** training loss dropped from `6.746` to `5.769` over the 400 steps
+  (`train_samples_per_second=1386`, `train_steps_per_second=86.61`, ~4.6s of training compute) —
+  a real, monotonic learning signal, not a flat/broken run. `artifacts/gpt_ur/` came out as a
+  complete, reloadable checkpoint (`config.json`, `model.safetensors`, `tokenizer.json`,
+  `tokenizer_config.json`, `generation_config.json`), confirmed loadable via
+  `GPT2LMHeadModel.from_pretrained`.
+- **What this confirms:** the warm-start copy, the causal-LM training loop, checkpoint
+  save/reload, and the full CLI/subprocess invocation path all work correctly against real
+  artifacts on real infrastructure — the same things the CPU e2e test (tiny fixture, `hidden_size:
+  128`) already covered, now also confirmed on the GPU deployment path it actually runs on.
+- **What this does *not* confirm:** generation quality. 400 steps is a mechanism-validation run,
+  not a quality benchmark — the resulting `artifacts/gpt_ur/` checkpoint is far too undertrained
+  for coherent text generation. A real run needs a real `--llm-minutes` budget (the same
+  calibrated, bounded-training approach the encoder's pretrain stage already uses), which this
+  validation deliberately skipped to keep the test's resource footprint small.
+
 ---
 
 ## MLflow experiment tracking
