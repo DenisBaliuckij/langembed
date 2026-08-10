@@ -1,0 +1,96 @@
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+_SPEC = importlib.util.spec_from_file_location(
+    "supervised_finetune_pass",
+    Path(__file__).resolve().parent.parent / "scripts" / "supervised_finetune_pass.py",
+)
+assert _SPEC is not None and _SPEC.loader is not None
+supervised_finetune_pass = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(supervised_finetune_pass)
+
+
+def test_get_triplets_native_raises_when_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervised_finetune_pass, "REPO_ROOT", tmp_path)
+
+    with pytest.raises(FileNotFoundError, match="native_triplets_ru.jsonl"):
+        supervised_finetune_pass.get_triplets("ru", "native", n_labels=60, n_components=100)
+
+
+def test_get_triplets_native_returns_existing_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervised_finetune_pass, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    native_path = tmp_path / "data" / "native_triplets_ru.jsonl"
+    native_path.write_text('{"anchor": "a", "positive": "b", "negative": "c"}\n', encoding="utf-8")
+
+    result = supervised_finetune_pass.get_triplets("ru", "native", n_labels=60, n_components=100)
+
+    assert result == native_path
+
+
+def test_get_triplets_svd_generates_and_writes(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervised_finetune_pass, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "corpus_ru.txt").write_text(
+        "\n".join(f"sentence {i}" for i in range(10)), encoding="utf-8"
+    )
+
+    from langembed.annotation import svd_label
+
+    monkeypatch.setattr(
+        svd_label,
+        "build_svd_sts_pairs",
+        lambda sentences, n, n_components: [("a", "b", 4.8)] * n,
+    )
+
+    result = supervised_finetune_pass.get_triplets("ru", "svd", n_labels=6, n_components=3)
+
+    assert result == tmp_path / "data" / "triplets_ru_svd.jsonl"
+    lines = result.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) > 0
+    row = json.loads(lines[0])
+    assert set(row.keys()) == {"anchor", "positive", "negative"}
+
+
+def test_run_supervised_finetune_pass_calls_train_supervised_and_embed_corpus(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(supervised_finetune_pass, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    native_path = tmp_path / "data" / "native_triplets_ru.jsonl"
+    native_path.write_text('{"anchor": "a", "positive": "b", "negative": "c"}\n', encoding="utf-8")
+
+    from langembed.contrastive import train_supervised as train_supervised_module
+
+    seen_cfg = {}
+
+    def fake_train_supervised(cfg):
+        seen_cfg.update(cfg)
+
+    monkeypatch.setattr(train_supervised_module, "train_supervised", fake_train_supervised)
+
+    seen_subprocess_args = {}
+
+    def fake_run(args, **kwargs):
+        seen_subprocess_args["args"] = args
+        seen_subprocess_args["kwargs"] = kwargs
+
+        class _Result:
+            returncode = 0
+
+        return _Result()
+
+    monkeypatch.setattr(supervised_finetune_pass.subprocess, "run", fake_run)
+
+    supervised_finetune_pass.run_supervised_finetune_pass(
+        "ru", "native", n_labels=60, n_components=100
+    )
+
+    assert seen_cfg["supervised"]["triplets_path"] == str(native_path)
+    assert seen_cfg["supervised"]["in_dir"] == "artifacts/simcse_ru"
+    assert seen_cfg["supervised"]["out_dir"] == "artifacts/embed_ru_native"
+    assert any("scripts/embed_corpus.py" in str(a) for a in seen_subprocess_args["args"])
+    assert "--out" in seen_subprocess_args["args"]
