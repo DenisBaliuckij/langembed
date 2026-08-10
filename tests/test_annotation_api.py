@@ -190,6 +190,8 @@ def test_label_get_renders_next_pending_item(client: TestClient, db_session: Ses
     assert resp.status_code == 200
     assert "la" in resp.text
     assert "lb" in resp.text
+    # Relative form action, not "/label" -- must stay under a reverse-proxy path prefix.
+    assert 'action="label"' in resp.text
 
 
 def test_label_get_no_pending_items(client: TestClient) -> None:
@@ -206,7 +208,10 @@ def test_label_post_persists_annotation_and_advances_status(
 
     resp = client.post("/label", data={"item_id": item.id, "score": 4}, follow_redirects=False)
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/label"
+    # Relative, not absolute: this service is deployed behind a path-based reverse
+    # proxy (e.g. /embeddings/<lang>/label), and an absolute "/label" redirect would
+    # escape that prefix and hit the proxy root instead of this language's backend.
+    assert resp.headers["location"] == "label"
 
     db_session.expire_all()
     updated = db_session.get(Item, item.id)

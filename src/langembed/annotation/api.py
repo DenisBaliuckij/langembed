@@ -109,7 +109,7 @@ def label_form(db: Session = Depends(get_db)) -> str:
       <h3>Rate similarity (1 = unrelated, 5 = same meaning)</h3>
       <p><b>A:</b> {item.sentence_a}</p>
       <p><b>B:</b> {item.sentence_b}</p>
-      <form method="post" action="/label">
+      <form method="post" action="label">
         <input type="hidden" name="item_id" value="{item.id}" />
         <input type="number" name="score" min="1" max="5" step="1" required />
         <button type="submit">Submit</button>
@@ -128,7 +128,7 @@ def label_submit(
     if item is not None:
         item.status = "labeled"
     db.commit()
-    return RedirectResponse(url="/label", status_code=303)
+    return RedirectResponse(url="label", status_code=303)
 
 
 @app.get("/export-sts")
