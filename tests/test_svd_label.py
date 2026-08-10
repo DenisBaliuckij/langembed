@@ -53,6 +53,14 @@ def test_build_svd_sts_pairs_too_few_sentences_returns_empty():
     assert svd_label.build_svd_sts_pairs(["only one sentence"], n=9) == []
 
 
+def test_build_svd_sts_pairs_degenerate_single_term_vocabulary_returns_empty():
+    """A corpus where every sentence is the same single repeated word has a TF-IDF
+    vocabulary size of 1, which clamps effective n_components below 1 -- must return []
+    instead of raising inside TruncatedSVD/TfidfVectorizer."""
+    sentences = ["foo foo foo", "foo foo", "foo", "foo foo foo foo"]
+    assert svd_label.build_svd_sts_pairs(sentences, n=2) == []
+
+
 def test_build_svd_sts_pairs_small_corpus_with_default_n_components():
     """Small corpus with default n_components=100 should clamp and not crash."""
     sentences = [

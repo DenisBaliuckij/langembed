@@ -898,6 +898,10 @@ The generated `configs/<lang>/eval.yaml` records which mode produced the STS tes
 scores have very different distributions, so this keeps eval runs from the two methods from being
 compared blind.
 
+For SVD-labeled test sets specifically: since pairs are uniformly random rather than curated
+positives, `recall@k` and `mrr@k` in the resulting `metrics/eval_<lang>.json` are close to chance
+level by construction — only the Spearman correlation is a meaningful quality signal for that mode.
+
 ---
 
 ## Evaluation

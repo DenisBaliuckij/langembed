@@ -151,8 +151,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--auto-label",
         action="store_true",
         help=(
-            "skip the manual /label step; generate silver STS pairs via "
-            "back-translation instead (no human, no docker/postgres needed for this step); "
+            "skip the manual /label step; generate silver STS pairs automatically "
+            "instead (no human, no docker/postgres needed for this step) using the "
+            "method chosen by --auto-label-method; the default method (back-translation) "
             "sends corpus sentences to external translation services (Google/MyMemory)"
         ),
     )
@@ -273,15 +274,15 @@ def generate_svd_sts(
     path in this file, so the pipeline behaves the same regardless of the process's CWD.
     """
     from langembed.annotation.auto_label import write_sts_pairs
-    from langembed.annotation.svd_label import build_svd_sts_pairs
+    from langembed.annotation.svd_label import MAX_FIT_SENTENCES, build_svd_sts_pairs
+    from langembed.data.reservoir_sample import reservoir_sample
 
     print("  (fully offline: TF-IDF + truncated SVD, no external services)")
 
     corpus_abs = _resolve_repo_path(corpus_path)
     sts_test_abs = _resolve_repo_path(sts_test_path)
 
-    with corpus_abs.open(encoding="utf-8") as f:
-        sentences = [ln.strip() for ln in f if ln.strip()]
+    sentences = reservoir_sample(str(corpus_abs), MAX_FIT_SENTENCES, seed=42)
     pairs = build_svd_sts_pairs(sentences, n=n_labels, n_components=n_components)
     print(f"  {len(pairs)} pairs -> {sts_test_abs}")
     return write_sts_pairs(pairs, sts_test_abs)
@@ -475,9 +476,10 @@ def main() -> None:
             # docs/ru-embeddings-report.pdf, section 3, for why train_paths must stay empty.
             "train_paths": [],
             "metrics_path": f"metrics/eval_{lang}.json",
-            # Auto-labeled silver pairs have only three discrete score values (4.8/2.0/0.3),
-            # a very different distribution from human 1-5 aggregate scores -- record which
-            # mode produced this eval config so metrics from the two aren't compared blind.
+            # Back-translation's auto-labeled pairs have only three discrete score values
+            # (4.8/2.0/0.3); SVD's are continuous. Both differ from human 1-5 aggregate
+            # scores -- record which mode produced this eval config so metrics from the
+            # different label sources aren't compared blind.
             "label_source": "auto" if args.auto_label else "manual",
             "label_method": args.auto_label_method if args.auto_label else None,
         }

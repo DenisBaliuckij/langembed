@@ -48,6 +48,11 @@ def build_svd_sts_pairs(
     # TruncatedSVD requires n_components < n_features and n_components + 1 <= n_samples.
     n_features = tfidf.shape[1]
     effective_n_components = min(n_components, n_features - 1, len(fit_sentences) - 1)
+    if effective_n_components < 1:
+        # Degenerate vocabulary (e.g. empty or a single repeated term across all
+        # sentences) -- no meaningful similarity space to build, same "can't produce
+        # pairs" contract as the len(sentences) < 2 guard above.
+        return []
     svd = TruncatedSVD(n_components=effective_n_components, random_state=seed)
     vectors = svd.fit_transform(tfidf)
 
