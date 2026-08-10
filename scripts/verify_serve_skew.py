@@ -11,12 +11,15 @@ import numpy as np
 
 
 def verify(embeddings_path: str, serve_url: str, n_samples: int, atol: float) -> bool:
-    rows = []
+    # Stream and stop at n_samples rather than loading the whole file: embeddings.jsonl
+    # can be tens of GB for large corpora, and only the first n_samples rows are ever used.
+    sample = []
     with open(embeddings_path, encoding="utf-8") as f:
         for line in f:
             if line.strip():
-                rows.append(json.loads(line))
-    sample = rows[:n_samples]
+                sample.append(json.loads(line))
+                if len(sample) >= n_samples:
+                    break
     texts = [r["text"] for r in sample]
     expected = np.array([r["embedding"] for r in sample])
 
