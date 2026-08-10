@@ -59,6 +59,11 @@ def train_gpt(cfg: dict[str, Any], smoke: bool = False) -> None:
     )
     model = GPT2LMHeadModel(config)  # random init except for the embedding warm-start below
 
+    if not Path(cfg["encoder_dir"]).is_dir():
+        raise FileNotFoundError(
+            f"encoder_dir not found: {cfg['encoder_dir']!r} -- run the pretrain stage for "
+            "this language first, or check the config's encoder_dir value"
+        )
     encoder = RobertaForMaskedLM.from_pretrained(cfg["encoder_dir"])
     warm_start_embeddings(model, encoder)
     print("parameters:", model.num_parameters())
@@ -84,6 +89,7 @@ def train_gpt(cfg: dict[str, Any], smoke: bool = False) -> None:
         fp16=t["fp16"] and torch.cuda.is_available(),
         dataloader_pin_memory=torch.cuda.is_available(),
         save_steps=t["save_steps"],
+        save_total_limit=2,
         logging_steps=t["logging_steps"],
         report_to=cfg.get("report_to", ["mlflow"]),
     )

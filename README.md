@@ -22,12 +22,13 @@ A from-scratch sentence-embedding pipeline for low-resource languages, with a na
 12. [Annotation service and active learning](#annotation-service-and-active-learning)
 13. [Automated labeling (no human annotator)](#automated-labeling-no-human-annotator)
 14. [Evaluation](#evaluation)
-15. [MLflow experiment tracking](#mlflow-experiment-tracking)
-16. [Testing](#testing)
-17. [Docker and docker-compose](#docker-and-docker-compose)
-18. [Adapting to another language](#adapting-to-another-language)
-19. [Makefile reference](#makefile-reference)
-20. [Troubleshooting](#troubleshooting)
+15. [GPT-style LLM training (optional, warm-started from the encoder)](#gpt-style-llm-training-optional-warm-started-from-the-encoder)
+16. [MLflow experiment tracking](#mlflow-experiment-tracking)
+17. [Testing](#testing)
+18. [Docker and docker-compose](#docker-and-docker-compose)
+19. [Adapting to another language](#adapting-to-another-language)
+20. [Makefile reference](#makefile-reference)
+21. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -945,6 +946,40 @@ Before any model loads, `evaluate.py` hashes all sentences in the test file, the
 
 ```
 RuntimeError: Test leakage detected via data/corpus_gu.txt
+```
+
+---
+
+## GPT-style LLM training (optional, warm-started from the encoder)
+
+`--train-llm` (opt-in, off by default) adds one more stage after the final embeddings are
+produced: training a small GPT-2-style causal decoder (next-token prediction) on the same
+corpus and tokenizer already built earlier in the pipeline.
+
+**Not the same thing as `src/langembed/llm_embed/`** (Branch C in this project's architecture
+comparison, LLM-as-embedder — a pretrained decoder + LoRA adapters, mean-pooled into sentence
+embeddings). This new stage runs in the opposite direction: it *produces* a small generative
+model, it doesn't consume one.
+
+**Warm-start is embeddings-only.** The bidirectional encoder (`artifacts/encoder_<lang>`) and
+the new causal decoder aren't weight-compatible for their attention blocks, so only the token
+embedding table is copied across — everything else in the GPT model trains from scratch. This
+requires the GPT model's `hidden_size` to exactly match the encoder's; `run_pipeline.py` keeps
+both at `256` for that reason.
+
+```bash
+python scripts/run_pipeline.py --lang gu --raw-input data/raw/gu_nllb.txt --train-llm
+
+# with an explicit training-time budget (default: 25 minutes, mirrors --pretrain-minutes)
+python scripts/run_pipeline.py --lang gu --raw-input data/raw/gu_nllb.txt \
+    --train-llm --llm-minutes 15
+```
+
+The trained model lands in `artifacts/gpt_<lang>/` and can be re-run standalone once
+`configs/<lang>/llm.yaml` exists (written by the pipeline on first run):
+
+```bash
+python -m langembed.llm.train_gpt --config configs/gu/llm.yaml
 ```
 
 ---
