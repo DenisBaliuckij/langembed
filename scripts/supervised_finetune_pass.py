@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,17 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 LABEL_METHODS = ("svd", "backtranslation", "native")
+
+# svd is fully offline (no network calls) so can afford a much larger pair count
+# than backtranslation, which is bounded by external MT API rate limits.
+DEFAULT_N_LABELS = {"svd": 3000, "backtranslation": 300}
+
+# Deliberately distinct from build_svd_sts_pairs/build_auto_sts_pairs's own default
+# seed=42, which is also what scripts/svd_eval_pass.py and run_pipeline.py's
+# generate_svd_sts/generate_auto_sts use to build the *eval* STS test set from the
+# same corpus -- reusing 42 here would train on a seeded reproduction of the eval
+# pairs themselves.
+TRIPLET_SEED = 1337
 
 
 def get_triplets(lang: str, label_method: str, n_labels: int, n_components: int) -> Path:
@@ -45,16 +57,20 @@ def get_triplets(lang: str, label_method: str, n_labels: int, n_components: int)
     from langembed.annotation.triplets import build_triplets_from_pairs
 
     corpus_path = REPO_ROOT / f"data/corpus_{lang}.txt"
-    with corpus_path.open(encoding="utf-8") as f:
-        sentences = [ln.strip() for ln in f if ln.strip()]
 
     if label_method == "svd":
-        from langembed.annotation.svd_label import build_svd_sts_pairs
+        from langembed.annotation.svd_label import MAX_FIT_SENTENCES, build_svd_sts_pairs
+        from langembed.data.reservoir_sample import reservoir_sample
 
-        pairs = build_svd_sts_pairs(sentences, n=n_labels, n_components=n_components)
+        sentences = reservoir_sample(str(corpus_path), MAX_FIT_SENTENCES, seed=TRIPLET_SEED)
+        pairs = build_svd_sts_pairs(
+            sentences, n=n_labels, n_components=n_components, seed=TRIPLET_SEED
+        )
     elif label_method == "backtranslation":
         from langembed.annotation.auto_label import build_auto_sts_pairs
 
+        with corpus_path.open(encoding="utf-8") as f:
+            sentences = [ln.strip() for ln in f if ln.strip()]
         cache_path = REPO_ROOT / f"data/backtranslation_cache_{lang}.jsonl"
         pairs = build_auto_sts_pairs(
             sentences,
@@ -63,11 +79,17 @@ def get_triplets(lang: str, label_method: str, n_labels: int, n_components: int)
             pivot_lang="en",
             source_lang=lang,
             cache_path=cache_path,
+            seed=TRIPLET_SEED,
         )
     else:
         raise ValueError(f"unknown label_method: {label_method!r}")
 
-    triplets = build_triplets_from_pairs(pairs)
+    triplets = build_triplets_from_pairs(pairs, seed=TRIPLET_SEED)
+    if not triplets:
+        raise RuntimeError(
+            f"No triplets could be built for lang={lang!r} label_method={label_method!r} "
+            f"from {len(pairs)} pairs -- corpus may be too small or too homogeneous."
+        )
     triplets_path = REPO_ROOT / f"data/triplets_{lang}_{label_method}.jsonl"
     triplets_path.parent.mkdir(parents=True, exist_ok=True)
     with triplets_path.open("w", encoding="utf-8") as f:
@@ -83,23 +105,35 @@ def get_triplets(lang: str, label_method: str, n_labels: int, n_components: int)
 
 
 def run_supervised_finetune_pass(
-    lang: str, label_method: str, n_labels: int = 60, n_components: int = 100
+    lang: str, label_method: str, n_labels: int | None = None, n_components: int = 100
 ) -> None:
     from langembed.contrastive.train_supervised import train_supervised
 
+    if n_labels is None:
+        n_labels = DEFAULT_N_LABELS.get(label_method, 60)
+
     print(f"=== [{lang}] supervised fine-tune ({label_method}) ===")
     triplets_path = get_triplets(lang, label_method, n_labels, n_components)
-    print(f"  triplets: {triplets_path}")
+
+    with triplets_path.open(encoding="utf-8") as f:
+        n_triplets = sum(1 for _ in f)
+    print(f"  {n_triplets} triplets -> {triplets_path}")
+
+    batch_size = 32
+    epochs = 3
+    steps_per_epoch = max(1, math.ceil(n_triplets / batch_size))
+    total_steps = steps_per_epoch * epochs
+    warmup_steps = max(1, min(100, total_steps // 10))
 
     supervised_cfg: dict[str, Any] = {
         "seed": 42,
         "supervised": {
             "triplets_path": str(triplets_path),
-            "in_dir": f"artifacts/simcse_{lang}",
-            "out_dir": f"artifacts/embed_{lang}_{label_method}",
-            "batch_size": 32,
-            "epochs": 3,
-            "warmup_steps": 100,
+            "in_dir": str(REPO_ROOT / f"artifacts/simcse_{lang}"),
+            "out_dir": str(REPO_ROOT / f"artifacts/embed_{lang}_{label_method}"),
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "warmup_steps": warmup_steps,
         },
     }
     supervised_path = REPO_ROOT / "configs" / lang / f"supervised_{label_method}.yaml"
@@ -142,7 +176,7 @@ def main() -> None:
     )
     ap.add_argument("--lang", required=True)
     ap.add_argument("--label-method", required=True, choices=LABEL_METHODS)
-    ap.add_argument("--n-labels", type=int, default=60)
+    ap.add_argument("--n-labels", type=int, default=None)
     ap.add_argument("--svd-components", type=int, default=100)
     args = ap.parse_args()
     run_supervised_finetune_pass(args.lang, args.label_method, args.n_labels, args.svd_components)

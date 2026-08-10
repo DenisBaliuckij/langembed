@@ -40,10 +40,16 @@ def test_get_triplets_svd_generates_and_writes(monkeypatch, tmp_path):
 
     from langembed.annotation import svd_label
 
+    # Alternating high/low scores with distinct sentence pairs, not a single
+    # identical pair repeated: build_triplets_from_pairs now drops degenerate
+    # triplets where positive == negative (see triplets.py), which an all-identical
+    # mock would produce once pos_cutoff == neg_cutoff.
     monkeypatch.setattr(
         svd_label,
         "build_svd_sts_pairs",
-        lambda sentences, n, n_components: [("a", "b", 4.8)] * n,
+        lambda sentences, n, n_components, seed: [
+            (f"a{i}", f"b{i}", 4.8 if i % 2 == 0 else 0.3) for i in range(n)
+        ],
     )
 
     result = supervised_finetune_pass.get_triplets("ru", "svd", n_labels=6, n_components=3)
@@ -90,7 +96,7 @@ def test_run_supervised_finetune_pass_calls_train_supervised_and_embed_corpus(
     )
 
     assert seen_cfg["supervised"]["triplets_path"] == str(native_path)
-    assert seen_cfg["supervised"]["in_dir"] == "artifacts/simcse_ru"
-    assert seen_cfg["supervised"]["out_dir"] == "artifacts/embed_ru_native"
+    assert seen_cfg["supervised"]["in_dir"] == str(tmp_path / "artifacts" / "simcse_ru")
+    assert seen_cfg["supervised"]["out_dir"] == str(tmp_path / "artifacts" / "embed_ru_native")
     assert any("scripts/embed_corpus.py" in str(a) for a in seen_subprocess_args["args"])
     assert "--out" in seen_subprocess_args["args"]

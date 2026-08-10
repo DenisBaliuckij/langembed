@@ -60,3 +60,9 @@ def test_build_triplets_from_pairs_all_same_score_does_not_crash():
     triplets = build_triplets_from_pairs(pairs, seed=1)
 
     assert isinstance(triplets, list)
+
+
+def test_build_triplets_from_pairs_filters_out_degenerate_positive_equals_negative():
+    pairs = [("a", "b", 3.0)]
+    triplets = build_triplets_from_pairs(pairs, seed=1)
+    assert triplets == []

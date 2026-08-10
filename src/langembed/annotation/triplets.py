@@ -43,5 +43,6 @@ def build_triplets_from_pairs(
 
     triplets: list[tuple[str, str, str]] = []
     for (anchor, pos_sentence), (_, neg_sentence) in zip(positive, negative, strict=False):
-        triplets.append((anchor, pos_sentence, neg_sentence))
+        if pos_sentence != neg_sentence:
+            triplets.append((anchor, pos_sentence, neg_sentence))
     return triplets
