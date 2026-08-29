@@ -1,0 +1,8 @@
+seed: 42
+supervised:
+  triplets_path: /app/data/triplets_kn_svd.jsonl
+  in_dir: /app/artifacts/simcse_kn
+  out_dir: /app/artifacts/embed_kn_svd
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 8

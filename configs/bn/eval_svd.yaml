@@ -1,0 +1,11 @@
+language: bn
+spacy_model: null
+test_path: /app/data/sts_test_bn_svd.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_bn
+train_paths: []
+metrics_path: metrics/eval_bn_svd.json
+label_source: auto
+label_method: svd

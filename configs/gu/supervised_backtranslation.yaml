@@ -1,0 +1,8 @@
+seed: 42
+supervised:
+  triplets_path: /app/data/triplets_gu_backtranslation.jsonl
+  in_dir: /app/artifacts/simcse_gu
+  out_dir: /app/artifacts/embed_gu_backtranslation
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 1

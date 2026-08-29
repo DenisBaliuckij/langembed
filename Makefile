@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke train-llm simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru pretrain-ru pretrain-ru-smoke simcse-ru simcse-ru-smoke seed-sts-ru eval-ru embed-ru
+.PHONY: setup lint test test-e2e corpus tokenizer pretrain pretrain-smoke train-llm simcse simcse-smoke supervised serve-annotation eval serve llm-mntp llm-lora smoke-dvc extract-pdf-ru corpus-ru tokenizer-ru pretrain-ru pretrain-ru-smoke simcse-ru simcse-ru-smoke seed-sts-ru eval-ru embed-ru embed-vocab-ru embed-vocab-ru-cbow
 
 PY ?= python
 
@@ -86,7 +86,13 @@ eval-ru:
 	$(PY) -m langembed.eval.evaluate --config configs/ru/eval.yaml
 
 embed-ru:
-	$(PY) scripts/embed_corpus.py --config configs/ru/contrastive.yaml --out artifacts/embeddings_ru/embeddings.jsonl
+	$(PY) scripts/embed_corpus.py --config configs/ru/contrastive.yaml --out artifacts/embeddings_ru/embeddings.jsonl --limit 0
+
+embed-vocab-ru:
+	$(PY) scripts/embed_vocab.py --config configs/ru/contrastive.yaml --lang ru --out artifacts/vocab_ru/vocab_embeddings.jsonl
+
+embed-vocab-ru-cbow:
+	$(PY) scripts/embed_vocab.py --config configs/ru/contrastive.yaml --lang ru --method cbow --out artifacts/vocab_ru/vocab_embeddings_cbow.jsonl
 
 %:
 	@:

@@ -1,0 +1,20 @@
+seed: 42
+encoder_dir: artifacts/encoder_or
+simcse:
+  sentences_path: data/corpus_or.txt
+  out_dir: artifacts/simcse_or
+  batch_size: 32
+  epochs: 1
+  warmup_steps: 100
+  max_seq_length: 128
+supervised:
+  triplets_path: data/native_triplets_or.jsonl
+  in_dir: artifacts/simcse_or
+  out_dir: artifacts/embed_or_v1
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 100
+vocab:
+  min_frequency: 5
+  include_bigrams: true
+  max_vocab_size: 100000

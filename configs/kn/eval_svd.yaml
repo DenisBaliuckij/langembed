@@ -1,0 +1,11 @@
+language: kn
+spacy_model: null
+test_path: /app/data/sts_test_kn_svd.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_kn
+train_paths: []
+metrics_path: metrics/eval_kn_svd.json
+label_source: auto
+label_method: svd

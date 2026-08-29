@@ -1,0 +1,24 @@
+seed: 42
+tokenizer_dir: artifacts/tokenizer_te
+corpus_path: data/corpus_te.txt
+out_dir: artifacts/encoder_te
+model:
+  hidden_size: 256
+  num_hidden_layers: 4
+  num_attention_heads: 4
+  intermediate_size: 1024
+  max_position_embeddings: 130
+  max_seq_length: 128
+training:
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1
+  learning_rate: 0.0005
+  weight_decay: 0.01
+  warmup_steps: 200
+  max_steps: 677
+  fp16: false
+  save_steps: 500
+  logging_steps: 50
+  mlm_probability: 0.15
+smoke:
+  max_steps: 50

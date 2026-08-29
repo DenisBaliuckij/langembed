@@ -1,0 +1,12 @@
+language: ta
+spacy_model: null
+data:
+  raw_paths:
+  - /app/data/raw/ta_nllb.txt
+  out_path: data/corpus_ta.txt
+  test_path: data/sts_test_ta.jsonl
+tokenizer:
+  vocab_size: 16000
+  min_frequency: 2
+  unk_rate_max: 0.01
+  out_dir: artifacts/tokenizer_ta

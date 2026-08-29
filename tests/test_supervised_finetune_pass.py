@@ -100,3 +100,47 @@ def test_run_supervised_finetune_pass_calls_train_supervised_and_embed_corpus(
     assert seen_cfg["supervised"]["out_dir"] == str(tmp_path / "artifacts" / "embed_ru_native")
     assert any("scripts/embed_corpus.py" in str(a) for a in seen_subprocess_args["args"])
     assert "--out" in seen_subprocess_args["args"]
+
+
+def test_run_supervised_finetune_pass_with_base_model_and_out_tag(monkeypatch, tmp_path):
+    """Branch B: a HuggingFace multilingual model id as base_model, with a distinct
+    out_tag so it doesn't collide with Branch A's own artifacts/embed_<lang>_<method>."""
+    monkeypatch.setattr(supervised_finetune_pass, "REPO_ROOT", tmp_path)
+    (tmp_path / "data").mkdir()
+    native_path = tmp_path / "data" / "native_triplets_ru.jsonl"
+    native_path.write_text('{"anchor": "a", "positive": "b", "negative": "c"}\n', encoding="utf-8")
+
+    from langembed.contrastive import train_supervised as train_supervised_module
+
+    seen_cfg = {}
+    monkeypatch.setattr(
+        train_supervised_module, "train_supervised", lambda cfg: seen_cfg.update(cfg)
+    )
+
+    seen_subprocess_args = {}
+
+    def fake_run(args, **kwargs):
+        seen_subprocess_args["args"] = args
+
+        class _Result:
+            returncode = 0
+
+        return _Result()
+
+    monkeypatch.setattr(supervised_finetune_pass.subprocess, "run", fake_run)
+
+    supervised_finetune_pass.run_supervised_finetune_pass(
+        "ru",
+        "native",
+        n_labels=60,
+        n_components=100,
+        base_model="sentence-transformers/LaBSE",
+        out_tag="b_mling",
+    )
+
+    assert seen_cfg["supervised"]["in_dir"] == "sentence-transformers/LaBSE"
+    assert seen_cfg["supervised"]["out_dir"] == str(tmp_path / "artifacts" / "embed_ru_b_mling")
+    out_arg_index = seen_subprocess_args["args"].index("--out")
+    assert seen_subprocess_args["args"][out_arg_index + 1] == str(
+        tmp_path / "output" / "ru" / "embeddings_b_mling.jsonl"
+    )

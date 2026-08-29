@@ -1,0 +1,11 @@
+language: ur
+spacy_model: null
+test_path: /app/data/sts_test_ur_svd.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_ur
+train_paths: []
+metrics_path: metrics/eval_ur_svd.json
+label_source: auto
+label_method: svd

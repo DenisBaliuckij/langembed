@@ -1,0 +1,11 @@
+language: te
+spacy_model: null
+test_path: data/sts_test_te.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_te
+train_paths: []
+metrics_path: metrics/eval_te.json
+label_source: auto
+label_method: svd

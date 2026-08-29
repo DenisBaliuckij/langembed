@@ -1,0 +1,5 @@
+{
+  "spearman_A": 0.22844451557158119,
+  "retrieval_recall@5_A": 0.08333333333333333,
+  "retrieval_mrr@5_A": 0.0325
+}

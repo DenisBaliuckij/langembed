@@ -105,14 +105,27 @@ def get_triplets(lang: str, label_method: str, n_labels: int, n_components: int)
 
 
 def run_supervised_finetune_pass(
-    lang: str, label_method: str, n_labels: int | None = None, n_components: int = 100
+    lang: str,
+    label_method: str,
+    n_labels: int | None = None,
+    n_components: int = 100,
+    base_model: str | None = None,
+    out_tag: str | None = None,
 ) -> None:
+    """Fine-tune `base_model` (default: this language's own from-scratch SimCSE
+    checkpoint, i.e. Branch A) on `label_method` triplets and embed a corpus sample
+    with the result. Passing a HuggingFace multilingual model id as `base_model`
+    (with a distinct `out_tag` to avoid colliding with Branch A's own artifacts)
+    turns this into Branch B -- see scripts/embed_branch_b.py, the only caller that
+    does this today; everything else about the fine-tune/embed flow is identical.
+    """
     from langembed.contrastive.train_supervised import train_supervised
 
     if n_labels is None:
         n_labels = DEFAULT_N_LABELS.get(label_method, 60)
+    tag = out_tag or label_method
 
-    print(f"=== [{lang}] supervised fine-tune ({label_method}) ===")
+    print(f"=== [{lang}] supervised fine-tune ({label_method} -> {tag}) ===")
     triplets_path = get_triplets(lang, label_method, n_labels, n_components)
 
     with triplets_path.open(encoding="utf-8") as f:
@@ -125,36 +138,38 @@ def run_supervised_finetune_pass(
     total_steps = steps_per_epoch * epochs
     warmup_steps = max(1, min(100, total_steps // 10))
 
+    in_dir = base_model or str(REPO_ROOT / f"artifacts/simcse_{lang}")
+
     supervised_cfg: dict[str, Any] = {
         "seed": 42,
         "supervised": {
             "triplets_path": str(triplets_path),
-            "in_dir": str(REPO_ROOT / f"artifacts/simcse_{lang}"),
-            "out_dir": str(REPO_ROOT / f"artifacts/embed_{lang}_{label_method}"),
+            "in_dir": in_dir,
+            "out_dir": str(REPO_ROOT / f"artifacts/embed_{lang}_{tag}"),
             "batch_size": batch_size,
             "epochs": epochs,
             "warmup_steps": warmup_steps,
         },
     }
-    supervised_path = REPO_ROOT / "configs" / lang / f"supervised_{label_method}.yaml"
+    supervised_path = REPO_ROOT / "configs" / lang / f"supervised_{tag}.yaml"
     supervised_path.parent.mkdir(parents=True, exist_ok=True)
     with supervised_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(supervised_cfg, f, allow_unicode=True, sort_keys=False)
 
     train_supervised(supervised_cfg)
-    print(f"  fine-tuned model -> artifacts/embed_{lang}_{label_method}")
+    print(f"  fine-tuned model -> artifacts/embed_{lang}_{tag}")
 
     embed_cfg = {
         "simcse": {
-            "out_dir": f"artifacts/embed_{lang}_{label_method}",
+            "out_dir": f"artifacts/embed_{lang}_{tag}",
             "sentences_path": f"data/corpus_{lang}.txt",
         }
     }
-    embed_cfg_path = REPO_ROOT / "configs" / lang / f"embed_{label_method}.yaml"
+    embed_cfg_path = REPO_ROOT / "configs" / lang / f"embed_{tag}.yaml"
     with embed_cfg_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(embed_cfg, f, allow_unicode=True, sort_keys=False)
 
-    out_path = REPO_ROOT / f"output/{lang}/embeddings_{label_method}.jsonl"
+    out_path = REPO_ROOT / f"output/{lang}/embeddings_{tag}.jsonl"
     subprocess.run(
         [
             sys.executable,
@@ -178,8 +193,27 @@ def main() -> None:
     ap.add_argument("--label-method", required=True, choices=LABEL_METHODS)
     ap.add_argument("--n-labels", type=int, default=None)
     ap.add_argument("--svd-components", type=int, default=100)
+    ap.add_argument(
+        "--base-model",
+        default=None,
+        help="fine-tune this model instead of the language's own SimCSE checkpoint "
+        "(e.g. a HuggingFace multilingual model id, for Branch B)",
+    )
+    ap.add_argument(
+        "--out-tag",
+        default=None,
+        help="output tag for artifacts/embed_<lang>_<tag> and "
+        "output/<lang>/embeddings_<tag>.jsonl (default: --label-method)",
+    )
     args = ap.parse_args()
-    run_supervised_finetune_pass(args.lang, args.label_method, args.n_labels, args.svd_components)
+    run_supervised_finetune_pass(
+        args.lang,
+        args.label_method,
+        args.n_labels,
+        args.svd_components,
+        base_model=args.base_model,
+        out_tag=args.out_tag,
+    )
 
 
 if __name__ == "__main__":

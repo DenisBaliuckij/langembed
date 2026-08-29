@@ -1,0 +1,11 @@
+language: kn
+spacy_model: null
+test_path: data/sts_test_kn.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_kn
+train_paths: []
+metrics_path: metrics/eval_kn.json
+label_source: auto
+label_method: backtranslation

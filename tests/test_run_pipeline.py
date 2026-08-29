@@ -313,6 +313,59 @@ def test_resolve_raw_text_inputs_missing_file_raises(tmp_path):
         run_pipeline.resolve_raw_text_inputs([tmp_path / "does_not_exist.txt"])
 
 
+def test_embed_sample_size_cli_flag_defaults():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(["--lang", "ru", "--input", "book.pdf"])
+
+    assert args.embed_sample_size == 200
+    assert args.vocab_method == "direct"
+
+
+def test_embed_sample_size_cli_flag_set():
+    ap = run_pipeline.build_arg_parser()
+    args = ap.parse_args(
+        [
+            "--lang",
+            "ru",
+            "--input",
+            "book.pdf",
+            "--embed-sample-size",
+            "0",
+            "--vocab-method",
+            "cbow",
+        ]
+    )
+
+    assert args.embed_sample_size == 0
+    assert args.vocab_method == "cbow"
+
+
+def test_vocab_method_rejects_unknown_value():
+    ap = run_pipeline.build_arg_parser()
+    import pytest
+
+    with pytest.raises(SystemExit):
+        ap.parse_args(["--lang", "ru", "--input", "book.pdf", "--vocab-method", "bogus"])
+
+
+def test_main_forwards_embed_sample_size_as_embed_corpus_limit():
+    """Same source-text-check approach as test_eval_cfg_records_label_source (main() runs
+    a long unmocked subprocess pipeline with no test coverage by design)."""
+    source = (Path(__file__).resolve().parent.parent / "scripts" / "run_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"--limit",\n            str(args.embed_sample_size),' in source
+
+
+def test_main_calls_embed_vocab_with_vocab_method():
+    """Same source-text-check approach as test_eval_cfg_records_label_source."""
+    source = (Path(__file__).resolve().parent.parent / "scripts" / "run_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    assert "scripts/embed_vocab.py" in source
+    assert "args.vocab_method" in source
+
+
 def test_input_and_raw_input_are_mutually_exclusive_and_required():
     ap = run_pipeline.build_arg_parser()
 

@@ -1,0 +1,16 @@
+seed: 42
+encoder_dir: artifacts/encoder_ur
+simcse:
+  sentences_path: data/corpus_ur.txt
+  out_dir: artifacts/simcse_ur
+  batch_size: 32
+  epochs: 1
+  warmup_steps: 100
+  max_seq_length: 128
+supervised:
+  triplets_path: data/native_triplets_ur.jsonl
+  in_dir: artifacts/simcse_ur
+  out_dir: artifacts/embed_ur_v1
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 100

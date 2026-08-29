@@ -1,0 +1,8 @@
+seed: 42
+supervised:
+  triplets_path: /app/data/triplets_mr_svd.jsonl
+  in_dir: /app/artifacts/simcse_mr
+  out_dir: /app/artifacts/embed_mr_svd
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 8

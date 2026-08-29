@@ -1,0 +1,10 @@
+language: ur
+spacy_model: null
+test_path: data/sts_test_ur.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_ur
+train_paths: []
+metrics_path: metrics/eval_ur.json
+label_source: auto

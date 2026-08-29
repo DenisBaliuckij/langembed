@@ -16,11 +16,18 @@ from langembed.llm_embed.model import ST_POOLING
 
 
 def build_model(cfg: dict[str, Any]) -> Any:
+    import torch
     from peft import LoraConfig
     from sentence_transformers import SentenceTransformer, models
 
-    model_args: dict[str, Any] = {"torch_dtype": "float16"}
-    if cfg.get("quantization", {}).get("load_in_4bit"):
+    has_cuda = torch.cuda.is_available()
+    # bitsandbytes 4-bit quantization is CUDA-kernel-only and errors outright on
+    # CPU; float16 is also poorly supported by most CPU kernels (falls back to a
+    # slow emulated path or errors depending on op). On CPU, run plain float32
+    # and skip quantization regardless of what the config asks for -- this is
+    # the only way `--gpus all`-less runs work at all, not just slower.
+    model_args: dict[str, Any] = {"torch_dtype": "float16" if has_cuda else "float32"}
+    if has_cuda and cfg.get("quantization", {}).get("load_in_4bit"):
         model_args["load_in_4bit"] = True
 
     base = cfg["base_model"]

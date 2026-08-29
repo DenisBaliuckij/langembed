@@ -1,0 +1,28 @@
+seed: 42
+mode: ready_embedder
+base_model: Qwen/Qwen3-Embedding-0.6B
+pooling: last_token
+instruction: Represent this or sentence for semantic similarity
+max_seq_length: 256
+quantization:
+  load_in_4bit: true
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+mntp:
+  enable: false
+  corpus_path: data/corpus_or.txt
+  out_dir: artifacts/llm_mntp_or
+train:
+  triplets_path: /app/data/triplets_or_svd.jsonl
+  out_dir: /app/artifacts/embed_or_c_llm
+  batch_size: 16
+  epochs: 3
+  learning_rate: 0.0002
+  warmup_ratio: 0.05

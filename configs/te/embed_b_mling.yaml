@@ -1,0 +1,3 @@
+simcse:
+  out_dir: artifacts/embed_te_b_mling
+  sentences_path: data/corpus_te.txt

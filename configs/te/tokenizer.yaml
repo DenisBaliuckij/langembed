@@ -1,0 +1,12 @@
+language: te
+spacy_model: null
+data:
+  raw_paths:
+  - /app/data/raw/te_nllb.txt
+  out_path: data/corpus_te.txt
+  test_path: data/sts_test_te.jsonl
+tokenizer:
+  vocab_size: 16000
+  min_frequency: 2
+  unk_rate_max: 0.01
+  out_dir: artifacts/tokenizer_te

@@ -205,6 +205,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     ap.add_argument("--llm-minutes", type=float, default=25.0, help="target GPT training wall time")
+    ap.add_argument(
+        "--embed-sample-size",
+        type=int,
+        default=200,
+        help=(
+            "cap the final per-sentence embeddings.jsonl at this many sentences "
+            "(forwarded to embed_corpus.py's --limit). It exists only to feed "
+            "verify_serve_skew.py's train/serve check; embedding the full corpus here "
+            "produced 40-220GB files per language and contributed to the "
+            "2026-08-10 disk/memory watchdog kills. Pass 0 for an intentional "
+            "full-corpus dump."
+        ),
+    )
+    ap.add_argument(
+        "--vocab-method",
+        choices=["direct", "cbow"],
+        default="direct",
+        help=(
+            "method for the vocabulary embedding table (forwarded to embed_vocab.py's "
+            "--method): 'direct' forward-passes each unique corpus word through the "
+            "trained SimCSE encoder; 'cbow' trains an independent Continuous "
+            "Bag-of-Words model on the corpus instead"
+        ),
+    )
     return ap
 
 
@@ -418,6 +442,16 @@ def main() -> None:
             "epochs": 3,
             "warmup_steps": 100,
         },
+        # Controls scripts/embed_vocab.py's extract_vocab (--method direct only;
+        # --method cbow builds its own vocab via langembed.wordembed.train_cbow).
+        # min_frequency=5 matches word2vec's own min_count default and drops the
+        # long tail of one-off typos/noise tokens that, unfiltered, previously
+        # inflated a single language's vocabulary table to 1M+ entries / 6.4GB.
+        "vocab": {
+            "min_frequency": 5,
+            "include_bigrams": True,
+            "max_vocab_size": 100_000,
+        },
     }
     contrastive_path = cfg_dir / "contrastive.yaml"
     write_yaml(contrastive_path, contrastive_cfg)
@@ -528,6 +562,25 @@ def main() -> None:
             str(contrastive_path),
             "--out",
             str(embeddings_path),
+            "--limit",
+            str(args.embed_sample_size),
+        ]
+    )
+
+    print(f"=== [{lang}] vocabulary embedding table (--vocab-method {args.vocab_method}) ===")
+    vocab_path = out_dir / "vocab_embeddings.jsonl"
+    run(
+        [
+            sys.executable,
+            "scripts/embed_vocab.py",
+            "--config",
+            str(contrastive_path),
+            "--lang",
+            lang,
+            "--out",
+            str(vocab_path),
+            "--method",
+            args.vocab_method,
         ]
     )
 

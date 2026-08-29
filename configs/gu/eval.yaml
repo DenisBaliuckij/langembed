@@ -1,0 +1,11 @@
+language: gu
+spacy_model: null
+test_path: data/sts_test_gu.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_gu
+train_paths: []
+metrics_path: metrics/eval_gu.json
+label_source: auto
+label_method: backtranslation

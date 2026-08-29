@@ -1,0 +1,10 @@
+language: pa
+spacy_model: null
+test_path: data/sts_test_pa.jsonl
+score_scale: 5.0
+retrieval_k: 5
+branches:
+  A: artifacts/simcse_pa
+train_paths: []
+metrics_path: metrics/eval_pa.json
+label_source: auto

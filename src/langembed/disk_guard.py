@@ -39,3 +39,12 @@ def estimate_jsonl_embedding_bytes(n_rows: int, dim: int, *, bytes_per_float: in
     so the estimate over- rather than under-shoots.
     """
     return n_rows * dim * bytes_per_float
+
+
+def estimate_binary_embedding_bytes(n_rows: int, dim: int, *, bytes_per_value: int = 2) -> int:
+    """Estimate for a raw float16 `.npy` embedding array (no per-row text/JSON overhead).
+
+    `bytes_per_value=2` is float16; the `.npy` format's fixed header is a few hundred
+    bytes at most, negligible next to the array itself.
+    """
+    return n_rows * dim * bytes_per_value + 4096
