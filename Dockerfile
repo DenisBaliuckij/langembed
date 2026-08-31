@@ -33,4 +33,11 @@ RUN pip install --no-cache-dir -e ".[serve]"
 
 FROM base AS ml
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        djvulibre-bin \
+        libreoffice \
+        pandoc \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir --timeout 300 -e ".[ml,translate]"
