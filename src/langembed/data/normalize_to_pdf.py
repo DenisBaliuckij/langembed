@@ -35,7 +35,10 @@ def detect_format(path: Path) -> str:
 
 
 def _run(cmd: list[str]) -> None:
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"{cmd[0]} failed (exit {e.returncode}): {e.stderr}") from e
 
 
 def _djvu_to_pdf(src: Path, out_dir: Path) -> Path:
@@ -63,9 +66,14 @@ def _office_to_pdf(src: Path, out_dir: Path) -> Path:
 
 
 def _ebook_to_pdf(src: Path, out_dir: Path) -> Path:
-    out_path = out_dir / f"{src.stem}.pdf"
-    _run(["pandoc", str(src), "-o", str(out_path)])
-    return out_path
+    # pandoc's default PDF engine (pdflatex) isn't installed in the Docker image, so a
+    # direct epub/fb2 -> pdf conversion fails 100% of the time. Route through an
+    # intermediate DOCX (pandoc handles this without a PDF engine), then reuse
+    # LibreOffice -- already proven to work for office docs -- to produce the PDF.
+    intermediate_docx = out_dir / f"{src.stem}.docx"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _run(["pandoc", str(src), "-o", str(intermediate_docx)])
+    return _office_to_pdf(intermediate_docx, out_dir)
 
 
 _CONVERTERS = {

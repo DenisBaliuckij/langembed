@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 _SPEC = importlib.util.spec_from_file_location(
     "bridge_corpus", Path(__file__).resolve().parent.parent / "scripts" / "bridge_corpus.py"
 )
@@ -30,6 +32,26 @@ def test_run_fast_writes_sentence_per_line(tmp_path, monkeypatch):
     assert len(paths) == 1
     written = (out_dir / "mr_bridge_book.txt").read_text(encoding="utf-8")
     assert written == "Hello world.\nSecond sentence.\n"
+
+
+def test_run_fast_raises_on_zero_sentences(tmp_path, monkeypatch):
+    doc = tmp_path / "scanned.pdf"
+    doc.write_bytes(b"%PDF fake")
+    out_dir = tmp_path / "raw"
+    normalized_dir = tmp_path / "normalized"
+
+    monkeypatch.setattr(
+        "langembed.data.extract_text.extract_pdf_text",
+        lambda p: "",
+    )
+    monkeypatch.setattr(
+        "langembed.data.extract_text.split_sentences",
+        lambda t: [],
+    )
+    monkeypatch.setattr("langembed.data.normalize_to_pdf.normalize_to_pdf", lambda src, out: src)
+
+    with pytest.raises(RuntimeError, match="0 sentences"):
+        bridge_corpus_module.run_fast("mr", [doc], out_dir, normalized_dir)
 
 
 def test_run_sciparse_normalize_only_returns_pdf_paths(tmp_path, monkeypatch):

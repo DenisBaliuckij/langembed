@@ -51,13 +51,13 @@ fi
 WATCHDOG_PID=$!
 
 cd "$BASE"
+RC=0
 timeout "${TIMEOUT_MINUTES}m" docker run --name "$CONTAINER" \
   "${GPU_FLAG[@]}" \
   --add-host host.docker.internal:host-gateway \
   -v "$BASE":/app -v /mnt/nvme-mssql:/mnt/nvme-mssql -w /app \
   langembed-ml:latest \
-  python "$@"
-RC=$?
+  python "$@" || RC=$?
 
 kill "$WATCHDOG_PID" 2>/dev/null || true
 wait "$WATCHDOG_PID" 2>/dev/null || true

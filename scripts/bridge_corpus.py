@@ -28,7 +28,13 @@ def run_fast(
     """conversion_method=fast: normalize each doc to PDF if needed, extract text
     directly via langembed's own extract_pdf_text, write one sentence-per-line raw
     text file per document (same format run_pipeline.py's --input already produces).
-    Returns the written file paths as strings (repo-relative where possible)."""
+    Returns the written file paths as strings (repo-relative where possible).
+
+    Note: sentence splitting (langembed.data.extract_text.split_sentences) only
+    recognizes Latin/Cyrillic sentence-boundary punctuation. For non-Latin/Cyrillic
+    languages (e.g. Devanagari), a document may come back as one unsegmented block
+    instead of properly split sentences -- a known limitation, not a bug in this
+    function."""
     from langembed.data.extract_text import extract_pdf_text, split_sentences
     from langembed.data.normalize_to_pdf import normalize_to_pdf
 
@@ -37,6 +43,12 @@ def run_fast(
     for doc in source_documents:
         pdf_path = normalize_to_pdf(doc, normalized_dir)
         sentences = split_sentences(extract_pdf_text(pdf_path))
+        if not sentences:
+            raise RuntimeError(
+                f"{doc} extracted to 0 sentences -- likely a scanned/image-only "
+                "document with no text layer (conversion_method=fast has no OCR; "
+                "try conversion_method=sciparse instead)"
+            )
         out_path = out_dir / f"{lang}_bridge_{doc.stem}.txt"
         with out_path.open("w", encoding="utf-8") as f:
             for s in sentences:
@@ -52,11 +64,20 @@ def run_sciparse_normalize_only(source_documents: list[Path], normalized_dir: Pa
     """conversion_method=sciparse: only normalize to PDF here -- the actual LaTeX
     conversion, waiting, and text extraction happens in a separate native Airflow task
     (text-corpuses-processing's dags/sciparse_bridge.py) that has direct access to
-    sciparse's DB/FTP config. Returns the normalized PDF paths (absolute strings) for
-    that task to consume."""
+    sciparse's DB/FTP config. Returns the normalized PDF paths as repo-relative
+    strings (matching run_fast's convention) -- both this container's /app and the
+    host's LANGEMBED_BASE are the same bind-mounted directory, so a repo-relative path
+    resolves correctly from either side."""
     from langembed.data.normalize_to_pdf import normalize_to_pdf
 
-    return [str(normalize_to_pdf(doc, normalized_dir)) for doc in source_documents]
+    results = []
+    for doc in source_documents:
+        pdf_path = normalize_to_pdf(doc, normalized_dir)
+        try:
+            results.append(str(pdf_path.relative_to(REPO_ROOT)))
+        except ValueError:
+            results.append(str(pdf_path))
+    return results
 
 
 def main() -> None:

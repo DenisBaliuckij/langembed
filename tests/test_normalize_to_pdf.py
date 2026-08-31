@@ -45,7 +45,7 @@ def test_normalize_djvu_calls_ddjvu(tmp_path, monkeypatch):
     out_dir = tmp_path / "out"
     calls = []
 
-    def fake_run(cmd, check, capture_output, text):
+    def fake_run(cmd, check, capture_output, text, timeout=None):
         calls.append(cmd)
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "a.pdf").write_bytes(b"%PDF fake")
@@ -62,7 +62,7 @@ def test_normalize_office_calls_soffice(tmp_path, monkeypatch):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    def fake_run(cmd, check, capture_output, text):
+    def fake_run(cmd, check, capture_output, text, timeout=None):
         (out_dir / "a.pdf").write_bytes(b"%PDF fake")
 
     monkeypatch.setattr("langembed.data.normalize_to_pdf.subprocess.run", fake_run)
@@ -82,17 +82,40 @@ def test_normalize_office_missing_output_raises(tmp_path, monkeypatch):
 
 
 def test_normalize_ebook_calls_pandoc(tmp_path, monkeypatch):
+    # epub/fb2 has no direct PDF engine available, so this chains pandoc (epub ->
+    # intermediate docx) then soffice (docx -> pdf, same path _office_to_pdf uses).
     src = tmp_path / "a.epub"
     src.write_bytes(b"fake epub")
     out_dir = tmp_path / "out"
     calls = []
 
-    def fake_run(cmd, check, capture_output, text):
+    def fake_run(cmd, check, capture_output, text, timeout=None):
         calls.append(cmd)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "a.pdf").write_bytes(b"%PDF fake")
+        if cmd[0] == "pandoc":
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "a.docx").write_bytes(b"fake docx")
+        elif cmd[0] == "soffice":
+            (out_dir / "a.pdf").write_bytes(b"%PDF fake")
 
     monkeypatch.setattr("langembed.data.normalize_to_pdf.subprocess.run", fake_run)
     result = normalize_to_pdf(src, out_dir)
     assert result == out_dir / "a.pdf"
     assert calls[0][0] == "pandoc"
+    assert calls[1][0] == "soffice"
+
+
+def test_run_wraps_called_process_error_with_stderr(monkeypatch):
+    import subprocess
+
+    from langembed.data.normalize_to_pdf import _run
+
+    def fake_run(cmd, check, capture_output, text, timeout=None):
+        raise subprocess.CalledProcessError(
+            returncode=1, cmd=cmd, stderr="disk full: cannot write output"
+        )
+
+    monkeypatch.setattr("langembed.data.normalize_to_pdf.subprocess.run", fake_run)
+    with pytest.raises(RuntimeError) as exc_info:
+        _run(["ddjvu", "-format=pdf", "in.djvu", "out.pdf"])
+    assert "disk full: cannot write output" in str(exc_info.value)
+    assert "ddjvu" in str(exc_info.value)

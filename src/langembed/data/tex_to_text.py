@@ -14,18 +14,24 @@ _DISPLAY_MATH_RE = re.compile(r"\$\$.*?\$\$|\\\[.*?\\\]", re.DOTALL)
 _INLINE_MATH_RE = re.compile(r"\$[^$]*\$")
 _COMMAND_WITH_ARG_RE = re.compile(r"\\[a-zA-Z]+\*?(\[[^\]]*\])?\{([^{}]*)\}")
 _BARE_COMMAND_RE = re.compile(r"\\[a-zA-Z]+\*?")
+_DROP_ENTIRELY_RE = re.compile(
+    r"\\(begin|end|label|ref|cite|includegraphics|bibliography)\*?(\[[^\]]*\])?\{[^{}]*\}"
+)
 _WHITESPACE_RE = re.compile(r"[ \t]+")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 
 def tex_to_text(tex: str) -> str:
-    """Best-effort LaTeX -> plain text: drops comments and math, unwraps
-    \\command{text} to its argument text (keeps prose like \\section{Introduction}),
-    drops bare commands with no argument (\\newpage etc.), and collapses excess
-    whitespace."""
+    """Best-effort LaTeX -> plain text: drops comments and math, drops structural
+    commands entirely (\\begin/\\end, \\label, \\ref, \\cite, \\includegraphics,
+    \\bibliography -- these have no prose value and would otherwise leak their
+    argument as garbage text), unwraps other \\command{text} to its argument text
+    (keeps prose like \\section{Introduction}), drops bare commands with no argument
+    (\\newpage etc.), and collapses excess whitespace."""
     text = _COMMENT_RE.sub("", tex)
     text = _DISPLAY_MATH_RE.sub(" ", text)
     text = _INLINE_MATH_RE.sub(" ", text)
+    text = _DROP_ENTIRELY_RE.sub(" ", text)
 
     # Repeatedly unwrap nested \command{...} to their innermost argument text,
     # since a single pass leaves outer commands wrapping already-unwrapped inner

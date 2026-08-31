@@ -30,3 +30,22 @@ def test_drops_bare_commands():
 def test_collapses_excess_blank_lines():
     result = tex_to_text("Para one.\n\n\n\n\nPara two.")
     assert "\n\n\n" not in result
+
+
+def test_drops_begin_end_environment_markers():
+    result = tex_to_text(r"\begin{document}Hello\end{document}")
+    assert "document" not in result
+    assert "Hello" in result
+
+
+def test_drops_label_ref_cite_includegraphics_bibliography():
+    result = tex_to_text(
+        r"See \label{eq:1}\ref{eq:1}\cite{smith2020}"
+        r"\includegraphics{fig3.png}\bibliography{refs} text."
+    )
+    assert "eq:1" not in result
+    assert "smith2020" not in result
+    assert "fig3.png" not in result
+    assert "refs" not in result
+    assert "See" in result
+    assert "text." in result
