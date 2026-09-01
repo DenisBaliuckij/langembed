@@ -52,7 +52,16 @@ WATCHDOG_PID=$!
 
 cd "$BASE"
 RC=0
+# Run as the invoking host user, not the image's default (root) -- otherwise
+# every output file/dir written under the $BASE bind mount ends up root-owned,
+# and the *next* run's plain (non-sudo) `rm -rf` against that same path fails
+# with Permission denied. -e HOME=/tmp gives libraries that expect a writable
+# $HOME for caches (pip, HuggingFace, matplotlib, etc.) somewhere to write,
+# since this non-root uid/gid has no passwd entry inside the container and
+# therefore no real home directory of its own.
 timeout "${TIMEOUT_MINUTES}m" docker run --name "$CONTAINER" \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
   "${GPU_FLAG[@]}" \
   --add-host host.docker.internal:host-gateway \
   -v "$BASE":/app -v /mnt/nvme-mssql:/mnt/nvme-mssql -w /app \
