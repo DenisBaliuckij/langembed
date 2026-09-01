@@ -38,9 +38,13 @@ def train_tokenizer(
     )
     sentences = reservoir_sample(corpus_path, max_train_sentences, seed)
     tok.train_from_iterator(sentences, trainer)
+    # Positional, not keyword args: newer tokenizers releases' pybind
+    # bindings don't accept `cls=` as a keyword (TypeError: unexpected
+    # keyword argument 'cls') even though the library's own docs show it as
+    # a named parameter -- positional matches the library's own example.
     tok.post_processor = processors.RobertaProcessing(
-        sep=("</s>", tok.token_to_id("</s>")),
-        cls=("<s>", tok.token_to_id("<s>")),
+        ("</s>", tok.token_to_id("</s>")),
+        ("<s>", tok.token_to_id("<s>")),
     )
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     tok.save(str(Path(out_dir) / "tokenizer.json"))
