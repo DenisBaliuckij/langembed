@@ -1,0 +1,5 @@
+# Shell scripts are executed via shebang on Linux deployment targets --
+# CRLF line endings corrupt "#!/bin/bash" into an interpreter path the
+# kernel can't find (exit 127, "cannot execute: required file not found").
+# Force LF regardless of the checking-out platform's core.autocrlf setting.
+*.sh text eol=lf
