@@ -33,6 +33,31 @@ _TEX_KEEP_TEXT_COMMAND_RE = re.compile(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?\{([^{}]*)
 _TEX_BEGIN_END_RE = re.compile(r"\\(begin|end)\{[a-zA-Z*]+\}")
 _TEX_STRAY_COMMAND_RE = re.compile(r"\\[a-zA-Z]+\*?")
 
+# sciparse (PDF->LaTeX conversion, see sciparse.substitute._label_block())
+# wraps formulas/figures/tables in its own bracket-tag blocks instead of
+# real LaTeX markup, so _TEX_DROP_ENV_RE above never sees them -- left
+# alone they leak straight through as if they were prose (e.g.
+# "[FIGURE 2 REVIEW] The image shows..." reads as a real sentence). Strip
+# just the bracket-tag wrapper; keep any actual plain-English description
+# that follows, since that's real semantic content worth having.
+_SCIPARSE_FORMULA_TAG_RE = re.compile(r"\[FORMULA \d+ · (?:inline|display)\]\s*(?:—\s*)?")
+_SCIPARSE_FIGURE_TAG_RE = re.compile(r"\[FIGURE \d+(?: ⚠ REVIEW)?\]\s*")
+_SCIPARSE_TABLE_TAG_RE = re.compile(r"\[TABLE \d+\]\s*")
+# sciparse's own failure-fallback strings (Ollama unreachable, no image
+# crop, describer never configured, ...) -- these are placeholders, not
+# content; drop outright rather than keep as fake prose.
+_SCIPARSE_PLACEHOLDER_RE = re.compile(
+    r"\[FIGURE DESCRIPTION PLACEHOLDER[^\]]*\]"
+    r"|\[No description available\]"
+    r"|\[No image available\]"
+    r"|\[No text detected in figure via OCR\]"
+    r"|\[FORMULA_PLACEHOLDER\]"
+)
+# Markdown table rows (sciparse's html_table_to_markdown output, following
+# a [TABLE N] tag) -- not prose, would otherwise get chunked into nonsense
+# "sentences" by split_sentences()/the phrase-unit chunker.
+_MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$\n?", re.MULTILINE)
+
 
 def tex_to_text(tex: str) -> str:
     """Strip LaTeX markup down to plain natural-language text.
@@ -41,7 +66,12 @@ def tex_to_text(tex: str) -> str:
     not a faithful LaTeX renderer. Math and non-prose environments (figures,
     tables, code listings, equations) are dropped rather than kept garbled.
     """
-    s = _TEX_COMMENT_RE.sub("", tex)
+    s = _SCIPARSE_PLACEHOLDER_RE.sub(" ", tex)
+    s = _SCIPARSE_FORMULA_TAG_RE.sub("", s)
+    s = _SCIPARSE_FIGURE_TAG_RE.sub("", s)
+    s = _SCIPARSE_TABLE_TAG_RE.sub("", s)
+    s = _MARKDOWN_TABLE_ROW_RE.sub(" ", s)
+    s = _TEX_COMMENT_RE.sub("", s)
     s = _TEX_DROP_ENV_RE.sub(" ", s)
     s = _TEX_MATH_INLINE_RE.sub(" ", s)
     s = _TEX_MATH_DISPLAY_RE.sub(" ", s)
