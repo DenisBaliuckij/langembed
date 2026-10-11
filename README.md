@@ -174,6 +174,8 @@ metrics/
 docs/
   ru/README_RU.md        Russian documentation
   IMPLEMENTATION_PLAN.md Phase-by-phase implementation reference
+  intrinsic-dimension.md Manual: label-free comparison of embeddings by intrinsic dimension
+  article-semantic-graph-v2.md  Per-article semantic graph v2
 ```
 
 ---
@@ -947,6 +949,16 @@ Before any model loads, `evaluate.py` hashes all sentences in the test file, the
 ```
 RuntimeError: Test leakage detected via data/corpus_gu.txt
 ```
+
+### Intrinsic dimension (label-free)
+
+`scripts/intrinsic_dims.py` compares embedding variants without any labels. It estimates how many dimensions their points really use, with an MST-length estimator, TwoNN, MLE and PCA, as mean ± std over seeds:
+
+```bash
+python scripts/intrinsic_dims.py --emb A=emb/A.npy --emb B=emb/B.npy --align --out-dir output/intrinsic_dims
+```
+
+Estimators, inputs, cost, how to read the numbers and the pilot results are in the manual: [docs/intrinsic-dimension.md](docs/intrinsic-dimension.md).
 
 ---
 

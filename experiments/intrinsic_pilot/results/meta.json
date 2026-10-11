@@ -1,0 +1,67 @@
+{
+  "args": {
+    "emb": [
+      "A0=experiments/intrinsic_pilot/emb/A0.npy",
+      "A=experiments/intrinsic_pilot/emb/A.npy",
+      "B=experiments/intrinsic_pilot/emb/B.npy",
+      "C=experiments/intrinsic_pilot/emb/C.npy",
+      "CBOW=experiments/intrinsic_pilot/emb/CBOW.npy",
+      "mpnet=experiments/intrinsic_pilot/emb/mpnet.jsonl"
+    ],
+    "out_dir": "experiments/intrinsic_pilot/results",
+    "preps": [
+      "unit",
+      "centered"
+    ],
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "sample_size": 10000,
+    "n_sizes": 10,
+    "alphas": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "align": true
+  },
+  "anisotropy": {
+    "A0": 0.5187447148550322,
+    "A": 0.6515559883843012,
+    "B": 0.24928723062238042,
+    "C": 0.8322040916879276,
+    "CBOW": 0.026029290071079045,
+    "mpnet": 0.12537272153338846
+  },
+  "seconds": 1363,
+  "shapes": {
+    "A0": [
+      10243,
+      256
+    ],
+    "A": [
+      10243,
+      256
+    ],
+    "B": [
+      10243,
+      768
+    ],
+    "C": [
+      10243,
+      1024
+    ],
+    "CBOW": [
+      10243,
+      128
+    ],
+    "mpnet": [
+      10243,
+      768
+    ]
+  }
+}
