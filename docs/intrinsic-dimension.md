@@ -125,3 +125,10 @@ Limits of the pilot:
 - There are only 10,243 distinct phrases, so each seed samples 10,000 of nearly the same points. The seed std therefore mainly reflects the MST subsample order, and TwoNN/MLE show ±0.0. Use `--sample-size` well below the item count, or more items, to get a real noise floor.
 - It covers English phrase units only, one domain (10 scientific articles) and one item type.
 
+## 9. Experiment 2: ID vs STS across languages (2026-10-11)
+
+32 language × model points in 14 languages (A0/A/B/BT, plus mpnet for English). ID was measured on 5,000 corpus sentences per language; STS on the project's auto-labelled tests and on the human-labelled SemEval-2024 SemRel test sets (hi, mr, pa, te, en). Details and the full table: [experiments/id_vs_sts/README.md](../experiments/id_vs_sts/README.md).
+
+- **ID does not predict STS quality.** Pooled over the human-labelled points: ρ = −0.29 [−0.82, +0.41], p = 0.36. Within languages the direction is random (5 of 11 pairs).
+- **The auto-labelled 60-pair STS tests do not agree with human labels** (ρ = −0.15, p = 0.64). Use SemRel where it exists.
+- **ID, participation ratio and anisotropy detect collapsed models:** `bn` A0 (anisotropy 0.98, participation ratio 3) and `mr` A0 (ID 16.7, participation ratio 10, human STS +0.23, repaired by A: ID 32.9, STS +0.64). Use them as a health check, not a quality score.
