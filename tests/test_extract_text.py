@@ -40,69 +40,102 @@ def test_split_sentences_dehyphenates_wrapped_words() -> None:
     assert result == ["Это слово было перенесено на новую строку книги, вот так вот."]
 
 
-def test_tex_to_text_strips_comments() -> None:
-    tex = "Real text here. % this is a comment, not prose\nMore text follows."
+def test_tex_to_text_strips_comments_and_commands() -> None:
+    tex = r"This is prose. % a comment that should vanish" "\n" r"\label{sec:intro}More prose here."
     result = tex_to_text(tex)
-    assert "this is a comment" not in result
-    assert "Real text here." in result
-    assert "More text follows." in result
+    assert "comment" not in result
+    assert "label" not in result
+    assert "This is prose." in result
+    assert "More prose here." in result
 
 
-def test_tex_to_text_drops_math() -> None:
-    tex = r"The energy is $E = mc^2$ and also \[F = ma\], as shown above."
-    result = tex_to_text(tex)
-    assert "E = mc^2" not in result
-    assert "F = ma" not in result
-    assert "The energy is" in result
-    assert "as shown above." in result
-
-
-def test_tex_to_text_drops_non_prose_environments() -> None:
+def test_tex_to_text_drops_math_and_non_prose_environments() -> None:
     tex = (
-        "Intro sentence here.\n"
-        r"\begin{table}\begin{tabular}{cc}a & b \\ c & d\end{tabular}\end{table}"
-        "\nConclusion sentence here."
+        r"Before the equation. \begin{equation} E = mc^2 \end{equation} After the equation. "
+        r"Inline math $x^2 + y^2$ stays out too."
     )
     result = tex_to_text(tex)
-    assert "a & b" not in result
-    assert "Intro sentence here." in result
-    assert "Conclusion sentence here." in result
+    assert "mc^2" not in result
+    assert "x^2" not in result
+    assert "Before the equation." in result
+    assert "After the equation." in result
 
 
-def test_tex_to_text_unwraps_formatting_commands_keeping_text() -> None:
-    tex = r"This is \textbf{very important} and \emph{also emphasized} text."
+def test_tex_to_text_unwraps_formatting_commands_keeping_their_text() -> None:
+    tex = r"\textbf{Important} results from \emph{this} study."
     result = tex_to_text(tex)
-    assert "very important" in result
-    assert "also emphasized" in result
-    assert "\\textbf" not in result
-    assert "\\emph" not in result
+    assert result == "Important results from this study."
 
 
-def test_tex_to_text_unwraps_nested_formatting_commands() -> None:
-    tex = r"A \textbf{\emph{doubly wrapped}} phrase."
+def test_tex_to_text_keeps_formula_description_drops_tag_and_raw_math() -> None:
+    """sciparse (PDF->LaTeX conversion) wraps formulas in a bracket-tag
+    block, not real LaTeX markup -- see sciparse.substitute._label_block().
+    The bare tag + garbled OCR'd LaTeX must not leak through as if it were
+    prose, but a real plain-English description sciparse generated is
+    genuine content worth keeping."""
+    tex = (
+        "Before the formula. "
+        r"[FORMULA 1 · inline]  $\mathbf{\hat{\Pi}}^{\star}$ — "
+        "The real part of a tensor product involving real numbers. "
+        "After the formula."
+    )
     result = tex_to_text(tex)
-    assert "doubly wrapped" in result
-    assert "\\" not in result
+    assert "FORMULA" not in result
+    assert r"\mathbf" not in result
+    assert "The real part of a tensor product involving real numbers." in result
+    assert "Before the formula." in result
+    assert "After the formula." in result
 
 
-def test_tex_to_text_drops_citations_and_labels() -> None:
-    tex = r"As shown in prior work \cite{smith2020}, the result holds \label{eq:main}."
+def test_tex_to_text_drops_undescribed_formula_entirely() -> None:
+    tex = r"Before. [FORMULA 6 · display]  $${\mathfrak{I}}_{\ell}^{\neq}$$ After."
     result = tex_to_text(tex)
-    assert "smith2020" not in result
-    assert "eq:main" not in result
-    assert "As shown in prior work" in result
+    assert "FORMULA" not in result
+    assert "mathfrak" not in result
+    assert "Before." in result
+    assert "After." in result
 
 
-def test_tex_to_text_drops_document_environment_wrapper_without_leaking_name() -> None:
-    tex = r"\begin{document}Real sentence content here.\end{document}"
+def test_tex_to_text_keeps_figure_description_drops_tag() -> None:
+    tex = (
+        "Before the figure.\n\n"
+        "[FIGURE 2 ⚠ REVIEW]\n"
+        "The image presents a detailed diagram of a computer system.\n\n"
+        "After the figure."
+    )
     result = tex_to_text(tex)
-    assert result == "Real sentence content here."
-    assert "document" not in result
+    assert "FIGURE" not in result
+    assert "REVIEW" not in result
+    assert "The image presents a detailed diagram of a computer system." in result
+    assert "Before the figure." in result
+    assert "After the figure." in result
 
 
-def test_tex_to_text_drops_section_markers_keeping_heading_text() -> None:
-    tex = r"\section{Introduction}" "\nThis section introduces the topic."
+def test_tex_to_text_drops_figure_placeholder_entirely() -> None:
+    tex = (
+        "Before.\n\n"
+        "[FIGURE 1532 ⚠ REVIEW]\n"
+        "[FIGURE DESCRIPTION PLACEHOLDER — caption: 'no caption']\n\n"
+        "After."
+    )
     result = tex_to_text(tex)
-    assert "Introduction" in result
-    assert "\\section" not in result
-    assert "This section introduces the topic." in result
+    assert "FIGURE" not in result
+    assert "PLACEHOLDER" not in result
+    assert "Before." in result
+    assert "After." in result
+
+
+def test_tex_to_text_drops_table_tag_and_markdown_rows() -> None:
+    tex = (
+        "Before the table.\n\n"
+        "[TABLE 4]\n"
+        "| Model | Accuracy |\n"
+        "| --- | --- |\n"
+        "| CNN | 0.91 |\n\n"
+        "After the table."
+    )
+    result = tex_to_text(tex)
+    assert "TABLE" not in result
+    assert "|" not in result
+    assert "Before the table." in result
+    assert "After the table." in result

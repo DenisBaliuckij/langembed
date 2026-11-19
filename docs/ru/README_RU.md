@@ -960,6 +960,16 @@ mlflow ui   # Experiments → выбрать → отметить прогоны
 RuntimeError: Test leakage detected via data/corpus_gu.txt
 ```
 
+### Внутренняя размерность (без разметки)
+
+`scripts/intrinsic_dims.py` сравнивает варианты эмбеддингов без всякой разметки. Он оценивает, сколько измерений реально используют их точки: длина минимального остовного дерева, TwoNN, MLE и PCA, среднее ± отклонение по зёрнам.
+
+```bash
+python scripts/intrinsic_dims.py --emb A=emb/A.npy --emb B=emb/B.npy --align --out-dir output/intrinsic_dims
+```
+
+Оценщики, входные данные, затраты, чтение результатов и итоги пилота описаны в руководстве: [docs/ru/intrinsic-dimension.md](intrinsic-dimension.md).
+
 ---
 
 ## Обучение GPT-подобной LLM (опционально, с warm-start от энкодера)
